@@ -1,0 +1,23 @@
+from sqlalchemy import Column, Integer, String, Date, Float, ForeignKey, DateTime
+from sqlalchemy.orm import relationship
+from datetime import datetime
+from app.core.database import Base
+
+class Employee(Base):
+    __tablename__ = "employees"
+
+    id            = Column(Integer, primary_key=True, index=True)
+    user_id       = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
+    first_name    = Column(String, nullable=False)
+    last_name     = Column(String, nullable=False)
+    phone         = Column(String)
+    department    = Column(String)
+    designation   = Column(String)
+    salary        = Column(Float, default=0.0)
+    join_date     = Column(Date)
+    created_at    = Column(DateTime, default=datetime.utcnow)
+
+    user       = relationship("User", back_populates="employee")
+    leaves     = relationship("Leave", back_populates="employee")
+    attendance = relationship("Attendance", back_populates="employee")
+    payrolls   = relationship("Payroll", back_populates="employee")

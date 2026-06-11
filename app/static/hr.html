@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ERP — HR Dashboard</title>
+  <link rel="stylesheet" href="/static/css/style.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    .charts-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+      margin-top: 24px;
+    }
+    .chart-card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 20px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+    }
+    .chart-card h4 {
+      font-size: 14px;
+      font-weight: 700;
+      color: #1e293b;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .chart-wrap { position: relative; height: 220px; }
+    @media(max-width:900px){ .charts-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <h2>⚡ ERP System</h2>
+      <p>HR Manager</p>
+    </div>
+    <nav class="sidebar-menu">
+      <div class="menu-section">Main</div>
+      <button class="menu-item active" onclick="showSection('dashboard', this)"><span class="icon">📊</span> Dashboard</button>
+      <div class="menu-section">HR Management</div>
+      <button class="menu-item" onclick="showSection('employees', this)"><span class="icon">👥</span> Employees</button>
+      <button class="menu-item" onclick="showSection('leaves', this)"><span class="icon">📅</span> Leave Requests</button>
+      <button class="menu-item" onclick="showSection('attendance', this)"><span class="icon">✅</span> Attendance</button>
+      <button class="menu-item" onclick="showSection('payroll', this)"><span class="icon">💰</span> Payroll</button>
+      <div class="menu-section">Procurement</div>
+      <button class="menu-item" onclick="window.location.href='/procurement.html'"><span class="icon">📋</span> Procurement</button>
+      <div class="menu-section">Operations</div>
+      <button class="menu-item" onclick="window.location.href='/inventory.html'"><span class="icon">📦</span> Inventory</button>
+      <button class="menu-item" onclick="window.location.href='/asset.html'"><span class="icon">🏷️</span> Assets</button>
+    </nav>
+    <div class="sidebar-user">
+      <div class="name" id="sidebarName">HR Manager</div>
+      <div class="role">HR Manager</div>
+      <button class="logout" onclick="logout()">← Logout</button>
+    </div>
+  </aside>
+
+  <div class="main-content">
+    <div class="topbar">
+      <h1 id="pageTitle">Dashboard</h1>
+      <span class="badge">HR Manager</span>
+    </div>
+    <div class="page-content">
+
+      <!-- Dashboard -->
+      <div id="sec-dashboard" class="section active">
+        <div class="stats-grid" id="statsGrid"><div class="loading">Loading...</div></div>
+        <div class="charts-grid" id="chartsGrid" style="display:none">
+          <div class="chart-card">
+            <h4>✅ Attendance Overview</h4>
+            <div class="chart-wrap"><canvas id="attChart"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <h4>📅 Leave Status</h4>
+            <div class="chart-wrap"><canvas id="leaveChart"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <h4>👥 Employees by Department</h4>
+            <div class="chart-wrap"><canvas id="deptChart"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <h4>💰 Payroll Summary</h4>
+            <div class="chart-wrap"><canvas id="payrollChart"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Employees -->
+      <div id="sec-employees" class="section">
+        <div class="card">
+          <div class="card-header">
+            <h3>👥 Employees</h3>
+            <button class="btn btn-primary btn-sm" onclick="openModal('addEmpModal')">+ Add Employee</button>
+          </div>
+          <div class="card-body">
+            <table>
+              <thead><tr><th>ID</th><th>Name</th><th>Department</th><th>Designation</th><th>Salary</th><th>Join Date</th><th>Actions</th></tr></thead>
+              <tbody id="employeeTable"><tr><td colspan="7" class="loading">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Leaves -->
+      <div id="sec-leaves" class="section">
+        <div class="card">
+          <div class="card-header"><h3>📅 Leave Requests</h3></div>
+          <div class="card-body">
+            <table>
+              <thead><tr><th>ID</th><th>Emp ID</th><th>Type</th><th>Start</th><th>End</th><th>Days</th><th>Reason</th><th>Status</th><th>Action</th></tr></thead>
+              <tbody id="leaveTable"><tr><td colspan="9" class="loading">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Attendance -->
+      <div id="sec-attendance" class="section">
+        <div class="card">
+          <div class="card-header">
+            <h3>✅ Attendance</h3>
+            <button class="btn btn-primary btn-sm" onclick="openModal('markAttModal')">+ Mark Attendance</button>
+          </div>
+          <div class="card-body">
+            <table>
+              <thead><tr><th>ID</th><th>Emp ID</th><th>Date</th><th>Check In</th><th>Check Out</th><th>Status</th></tr></thead>
+              <tbody id="attendanceTable"><tr><td colspan="6" class="loading">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Payroll -->
+      <div id="sec-payroll" class="section">
+        <div class="card">
+          <div class="card-header">
+            <h3>💰 Payroll</h3>
+            <button class="btn btn-primary btn-sm" onclick="openModal('payrollModal')">+ Process Payroll</button>
+          </div>
+          <div class="card-body">
+            <table>
+              <thead><tr><th>ID</th><th>Emp ID</th><th>Month</th><th>Basic</th><th>Allowances</th><th>Deductions</th><th>Net Salary</th><th>Status</th></tr></thead>
+              <tbody id="payrollTable"><tr><td colspan="8" class="loading">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Add Employee Modal -->
+<div class="modal-overlay" id="addEmpModal">
+  <div class="modal">
+    <h3>Add Employee</h3>
+    <div class="alert alert-error" id="empError"></div>
+    <div class="form-group"><label>User ID</label><input type="number" id="empUserId"/></div>
+    <div class="form-group"><label>First Name</label><input type="text" id="empFirst"/></div>
+    <div class="form-group"><label>Last Name</label><input type="text" id="empLast"/></div>
+    <div class="form-group"><label>Phone</label><input type="text" id="empPhone"/></div>
+    <div class="form-group"><label>Department</label><input type="text" id="empDept"/></div>
+    <div class="form-group"><label>Designation</label><input type="text" id="empDesig"/></div>
+    <div class="form-group"><label>Salary</label><input type="number" id="empSalary"/></div>
+    <div class="form-group"><label>Join Date</label><input type="date" id="empJoin"/></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="saveEmployee()">Save</button>
+      <button class="btn" style="background:#e2e8f0" onclick="closeModal('addEmpModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Employee Modal -->
+<div class="modal-overlay" id="editEmpModal">
+  <div class="modal">
+    <h3>Edit Employee</h3>
+    <div class="alert alert-error" id="editEmpError"></div>
+    <input type="hidden" id="editEmpId"/>
+    <div class="form-group"><label>First Name</label><input type="text" id="editEmpFirst"/></div>
+    <div class="form-group"><label>Last Name</label><input type="text" id="editEmpLast"/></div>
+    <div class="form-group"><label>Phone</label><input type="text" id="editEmpPhone"/></div>
+    <div class="form-group"><label>Department</label><input type="text" id="editEmpDept"/></div>
+    <div class="form-group"><label>Designation</label><input type="text" id="editEmpDesig"/></div>
+    <div class="form-group"><label>Salary</label><input type="number" id="editEmpSalary"/></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="updateEmployee()">Update</button>
+      <button class="btn" style="background:#e2e8f0" onclick="closeModal('editEmpModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Mark Attendance Modal -->
+<div class="modal-overlay" id="markAttModal">
+  <div class="modal">
+    <h3>Mark Attendance</h3>
+    <div class="alert alert-error" id="attError"></div>
+    <div class="form-group"><label>Employee ID</label><input type="number" id="attEmpId"/></div>
+    <div class="form-group"><label>Date</label><input type="date" id="attDate"/></div>
+    <div class="form-group"><label>Check In</label><input type="datetime-local" id="attCheckIn"/></div>
+    <div class="form-group"><label>Check Out</label><input type="datetime-local" id="attCheckOut"/></div>
+    <div class="form-group"><label>Status</label>
+      <select id="attStatus">
+        <option value="present">Present</option>
+        <option value="absent">Absent</option>
+        <option value="late">Late</option>
+        <option value="half_day">Half Day</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="markAttendance()">Save</button>
+      <button class="btn" style="background:#e2e8f0" onclick="closeModal('markAttModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Process Payroll Modal -->
+<div class="modal-overlay" id="payrollModal">
+  <div class="modal">
+    <h3>Process Payroll</h3>
+    <div class="alert alert-error" id="payError"></div>
+    <div class="form-group"><label>Employee ID</label><input type="number" id="payEmpId"/></div>
+    <div class="form-group"><label>Month (YYYY-MM)</label><input type="text" id="payMonth" placeholder="2024-06"/></div>
+    <div class="form-group"><label>Basic Salary</label><input type="number" id="payBasic"/></div>
+    <div class="form-group"><label>Allowances</label><input type="number" id="payAllow" placeholder="0"/></div>
+    <div class="form-group"><label>Deductions</label><input type="number" id="payDeduct" placeholder="0"/></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="processPayroll()">Process</button>
+      <button class="btn" style="background:#e2e8f0" onclick="closeModal('payrollModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/api.js"></script>
+<script>
+  requireAuth();
+  const role = getRole();
+  if (role !== "hr_manager" && role !== "admin") redirectByRole(role);
+  document.getElementById("sidebarName").textContent = getUsername();
+
+  const titles = { dashboard:"Dashboard", employees:"Employees", leaves:"Leave Requests", attendance:"Attendance", payroll:"Payroll" };
+  let attChartInst, leaveChartInst, deptChartInst, payrollChartInst;
+
+  function showSection(name, el) {
+    document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
+    document.querySelectorAll(".menu-item").forEach(m => m.classList.remove("active"));
+    document.getElementById("sec-" + name).classList.add("active");
+    el.classList.add("active");
+    document.getElementById("pageTitle").textContent = titles[name];
+    loadSection(name);
+  }
+
+  function loadSection(name) {
+    if      (name === "dashboard")  loadDashboard();
+    else if (name === "employees")  loadEmployees();
+    else if (name === "leaves")     loadLeaves();
+    else if (name === "attendance") loadAttendance();
+    else if (name === "payroll")    loadPayroll();
+  }
+
+  function openModal(id)  { document.getElementById(id).classList.add("open"); }
+  function closeModal(id) { document.getElementById(id).classList.remove("open"); }
+  function showErr(id, msg) { const e = document.getElementById(id); e.textContent = msg; e.style.display = "block"; }
+  function destroyChart(inst) { if (inst) inst.destroy(); }
+
+  // ── Dashboard + Charts ───────────────────────────────
+  async function loadDashboard() {
+    const [d, attendance, leaves, employees, payrolls] = await Promise.all([
+      api("GET", "/dashboard/"),
+      api("GET", "/hr/attendance"),
+      api("GET", "/hr/leave"),
+      api("GET", "/employee/"),
+      api("GET", "/hr/payroll")
+    ]);
+
+    document.getElementById("statsGrid").innerHTML = `
+      <div class="stat-card"><div class="label">Total Employees</div><div class="value">${d.total_employees}</div></div>
+      <div class="stat-card yellow"><div class="label">Pending Leaves</div><div class="value">${d.pending_leaves}</div></div>
+      <div class="stat-card green"><div class="label">Approved Leaves</div><div class="value">${d.approved_leaves}</div></div>
+      <div class="stat-card red"><div class="label">Rejected Leaves</div><div class="value">${d.rejected_leaves}</div></div>
+      <div class="stat-card green"><div class="label">Present Today</div><div class="value">${d.present_today}</div></div>
+      <div class="stat-card yellow"><div class="label">Pending Payrolls</div><div class="value">${d.pending_payrolls}</div></div>
+    `;
+
+    document.getElementById("chartsGrid").style.display = "grid";
+
+    // 1. Attendance donut
+    const present  = attendance.filter(a => a.status === "present").length;
+    const absent   = attendance.filter(a => a.status === "absent").length;
+    const late     = attendance.filter(a => a.status === "late").length;
+    const halfday  = attendance.filter(a => a.status === "half_day").length;
+    destroyChart(attChartInst);
+    attChartInst = new Chart(document.getElementById("attChart"), {
+      type: "doughnut",
+      data: {
+        labels: ["Present","Absent","Late","Half Day"],
+        datasets: [{
+          data: [present, absent, late, halfday],
+          backgroundColor: ["#22c55e","#ef4444","#f59e0b","#06b6d4"],
+          borderWidth: 0, hoverOffset: 8
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: "bottom", labels: { padding: 14, font: { size: 11 } } } },
+        animation: { animateScale: true, duration: 800 }
+      }
+    });
+
+    // 2. Leave status bar
+    const lPending  = leaves.filter(l => l.status === "pending").length;
+    const lApproved = leaves.filter(l => l.status === "approved").length;
+    const lRejected = leaves.filter(l => l.status === "rejected").length;
+    destroyChart(leaveChartInst);
+    leaveChartInst = new Chart(document.getElementById("leaveChart"), {
+      type: "bar",
+      data: {
+        labels: ["Pending","Approved","Rejected"],
+        datasets: [{
+          data: [lPending, lApproved, lRejected],
+          backgroundColor: ["#f59e0b","#22c55e","#ef4444"],
+          borderRadius: 8, borderWidth: 0
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { x: { grid: { display: false } }, y: { grid: { color: "#f1f5f9" }, ticks: { stepSize: 1 } } },
+        animation: { duration: 800 }
+      }
+    });
+
+    // 3. Department wise employees
+    const depts = [...new Set(employees.map(e => e.department))];
+    const deptCounts = depts.map(d => employees.filter(e => e.department === d).length);
+    destroyChart(deptChartInst);
+    deptChartInst = new Chart(document.getElementById("deptChart"), {
+      type: "bar",
+      data: {
+        labels: depts.length ? depts : ["No Data"],
+        datasets: [{
+          label: "Employees",
+          data: deptCounts,
+          backgroundColor: ["#6366f1","#f59e0b","#22c55e","#06b6d4","#f43f5e","#2563eb"],
+          borderRadius: 8
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { x: { grid: { display: false } }, y: { grid: { color: "#f1f5f9" }, ticks: { stepSize: 1 } } },
+        animation: { duration: 900 }
+      }
+    });
+
+    // 4. Payroll net salary bar
+    const recentPayrolls = payrolls.slice(-6);
+    destroyChart(payrollChartInst);
+    payrollChartInst = new Chart(document.getElementById("payrollChart"), {
+      type: "bar",
+      data: {
+        labels: recentPayrolls.length ? recentPayrolls.map(p => `Emp ${p.employee_id} - ${p.month}`) : ["No Data"],
+        datasets: [{
+          label: "Net Salary",
+          data: recentPayrolls.map(p => p.net_salary),
+          backgroundColor: "rgba(99,102,241,0.8)",
+          borderRadius: 8
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { x: { grid: { display: false }, ticks: { font: { size: 10 } } }, y: { grid: { color: "#f1f5f9" } } },
+        animation: { duration: 800 }
+      }
+    });
+  }
+
+  // ── Employees ────────────────────────────────────────
+  async function loadEmployees() {
+    const list = await api("GET", "/employee/");
+    const tb = document.getElementById("employeeTable");
+    if (!list.length) { tb.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#64748b">No employees</td></tr>`; return; }
+    tb.innerHTML = list.map(e => `
+      <tr>
+        <td>${e.id}</td><td>${e.first_name} ${e.last_name}</td>
+        <td>${e.department}</td><td>${e.designation}</td>
+        <td>${e.salary}</td><td>${e.join_date||"-"}</td>
+        <td>
+          <button class="btn btn-warning btn-sm" onclick="openEditEmp(${e.id},'${e.first_name}','${e.last_name}','${e.phone||''}','${e.department}','${e.designation}',${e.salary})">✏️</button>
+        </td>
+      </tr>`).join("");
+  }
+
+  async function saveEmployee() {
+    try {
+      const userId = document.getElementById("empUserId").value;
+      await api("POST", `/employee/?user_id=${userId}`, {
+        first_name: document.getElementById("empFirst").value,
+        last_name:  document.getElementById("empLast").value,
+        phone:      document.getElementById("empPhone").value,
+        department: document.getElementById("empDept").value,
+        designation:document.getElementById("empDesig").value,
+        salary:     parseFloat(document.getElementById("empSalary").value),
+        join_date:  document.getElementById("empJoin").value
+      });
+      closeModal("addEmpModal"); loadEmployees();
+    } catch(e) { showErr("empError", e.message); }
+  }
+
+  function openEditEmp(id, first, last, phone, dept, desig, salary) {
+    document.getElementById("editEmpId").value    = id;
+    document.getElementById("editEmpFirst").value = first;
+    document.getElementById("editEmpLast").value  = last;
+    document.getElementById("editEmpPhone").value = phone;
+    document.getElementById("editEmpDept").value  = dept;
+    document.getElementById("editEmpDesig").value = desig;
+    document.getElementById("editEmpSalary").value= salary;
+    openModal("editEmpModal");
+  }
+
+  async function updateEmployee() {
+    const id = document.getElementById("editEmpId").value;
+    try {
+      await api("PUT", `/employee/${id}`, {
+        first_name: document.getElementById("editEmpFirst").value,
+        last_name:  document.getElementById("editEmpLast").value,
+        phone:      document.getElementById("editEmpPhone").value,
+        department: document.getElementById("editEmpDept").value,
+        designation:document.getElementById("editEmpDesig").value,
+        salary:     parseFloat(document.getElementById("editEmpSalary").value)
+      });
+      closeModal("editEmpModal"); loadEmployees();
+    } catch(e) { showErr("editEmpError", e.message); }
+  }
+
+  async function loadLeaves() {
+    const list = await api("GET", "/hr/leave");
+    const tb = document.getElementById("leaveTable");
+    if (!list.length) { tb.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#64748b">No requests</td></tr>`; return; }
+    tb.innerHTML = list.map(l => `
+      <tr>
+        <td>${l.id}</td><td>${l.employee_id}</td><td>${l.leave_type}</td>
+        <td>${l.start_date}</td><td>${l.end_date}</td><td>${l.days}</td>
+        <td>${l.reason||"-"}</td>
+        <td><span class="status ${l.status}">${l.status}</span></td>
+        <td>${l.status==="pending"?`
+          <button class="btn btn-success btn-sm" onclick="updateLeave(${l.id},'approved')">✓</button>
+          <button class="btn btn-danger btn-sm" onclick="updateLeave(${l.id},'rejected')">✗</button>`:"-"}
+        </td>
+      </tr>`).join("");
+  }
+
+  async function updateLeave(id, status) {
+    await api("PUT", `/hr/leave/${id}`, { status, approved_by: 1 });
+    loadLeaves();
+  }
+
+  async function loadAttendance() {
+    const list = await api("GET", "/hr/attendance");
+    const tb = document.getElementById("attendanceTable");
+    if (!list.length) { tb.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#64748b">No records</td></tr>`; return; }
+    tb.innerHTML = list.map(a => `
+      <tr>
+        <td>${a.id}</td><td>${a.employee_id}</td><td>${a.date}</td>
+        <td>${a.check_in?a.check_in.slice(11,16):"-"}</td>
+        <td>${a.check_out?a.check_out.slice(11,16):"-"}</td>
+        <td><span class="status ${a.status}">${a.status}</span></td>
+      </tr>`).join("");
+  }
+
+  async function markAttendance() {
+    try {
+      await api("POST", "/hr/attendance", {
+        employee_id: parseInt(document.getElementById("attEmpId").value),
+        date:        document.getElementById("attDate").value,
+        check_in:    document.getElementById("attCheckIn").value||null,
+        check_out:   document.getElementById("attCheckOut").value||null,
+        status:      document.getElementById("attStatus").value
+      });
+      closeModal("markAttModal"); loadAttendance();
+    } catch(e) { showErr("attError", e.message); }
+  }
+
+  async function loadPayroll() {
+    const list = await api("GET", "/hr/payroll");
+    const tb = document.getElementById("payrollTable");
+    if (!list.length) { tb.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#64748b">No records</td></tr>`; return; }
+    tb.innerHTML = list.map(p => `
+      <tr>
+        <td>${p.id}</td><td>${p.employee_id}</td><td>${p.month}</td>
+        <td>${p.basic_salary}</td><td>${p.allowances}</td><td>${p.deductions}</td>
+        <td><strong>${p.net_salary}</strong></td>
+        <td><span class="status ${p.status}">${p.status}</span></td>
+      </tr>`).join("");
+  }
+
+  async function processPayroll() {
+    try {
+      await api("POST", "/hr/payroll", {
+        employee_id:  parseInt(document.getElementById("payEmpId").value),
+        month:        document.getElementById("payMonth").value,
+        basic_salary: parseFloat(document.getElementById("payBasic").value),
+        allowances:   parseFloat(document.getElementById("payAllow").value||0),
+        deductions:   parseFloat(document.getElementById("payDeduct").value||0)
+      });
+      closeModal("payrollModal"); loadPayroll();
+    } catch(e) { showErr("payError", e.message); }
+  }
+
+  document.addEventListener("click", e => {
+    if (e.target.classList.contains("modal-overlay")) e.target.classList.remove("open");
+  });
+
+  loadDashboard();
+</script>
+</body>
+</html>

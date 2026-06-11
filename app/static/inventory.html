@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ERP — Inventory</title>
+  <link rel="stylesheet" href="/static/css/style.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    .charts-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:20px; margin-top:24px; }
+    .chart-card { background:#fff; border-radius:14px; padding:20px; box-shadow:0 2px 12px rgba(0,0,0,0.07); }
+    .chart-card h4 { font-size:14px; font-weight:700; color:#1e293b; margin-bottom:16px; }
+    .chart-wrap { position:relative; height:220px; }
+    .low-stock-badge { background:#fef2f2; color:#dc2626; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; }
+    .stock-ok-badge  { background:#f0fdf4; color:#16a34a; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; }
+    .out-badge       { background:#fef2f2; color:#dc2626; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; }
+    @media(max-width:900px){ .charts-grid { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <h2>⚡ ERP System</h2>
+      <p>Inventory</p>
+    </div>
+    <nav class="sidebar-menu">
+      <div class="menu-section">Main</div>
+      <button class="menu-item active" onclick="showSection('dashboard',this)"><span class="icon">📊</span> Dashboard</button>
+      <div class="menu-section">Inventory</div>
+      <button class="menu-item" onclick="showSection('items',this)"><span class="icon">📦</span> Item Master</button>
+      <button class="menu-item" onclick="showSection('movements',this)"><span class="icon">🔄</span> Stock Movements</button>
+      <button class="menu-item" onclick="showSection('lowstock',this)"><span class="icon">⚠️</span> Low Stock Alerts</button>
+      <div class="menu-section">Navigate</div>
+      <button class="menu-item" onclick="window.history.back()"><span class="icon">←</span> Go Back</button>
+    </nav>
+    <div class="sidebar-user">
+      <div class="name" id="sidebarName">User</div>
+      <div class="role" id="sidebarRole">Inventory</div>
+      <button class="logout" onclick="logout()">← Logout</button>
+    </div>
+  </aside>
+
+  <div class="main-content">
+    <div class="topbar">
+      <h1 id="pageTitle">Dashboard</h1>
+      <span class="badge" style="background:#0891b2">Inventory</span>
+    </div>
+    <div class="page-content">
+
+      <!-- Dashboard -->
+      <div id="sec-dashboard" class="section active">
+        <div class="stats-grid" id="statsGrid"><div class="loading">Loading...</div></div>
+        <div class="charts-grid" id="chartsGrid" style="display:none">
+          <div class="chart-card">
+            <h4>📦 Stock by Category</h4>
+            <div class="chart-wrap"><canvas id="catChart"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <h4>⚠️ Stock Status Overview</h4>
+            <div class="chart-wrap"><canvas id="stockStatusChart"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <h4>💰 Inventory Value by Category</h4>
+            <div class="chart-wrap"><canvas id="valueChart"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <h4>🔄 Recent Movements</h4>
+            <div class="chart-wrap"><canvas id="movementChart"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Items -->
+      <div id="sec-items" class="section">
+        <div class="card">
+          <div class="card-header">
+            <h3>📦 Item Master</h3>
+            <button class="btn btn-primary btn-sm" onclick="openModal('addItemModal')">+ Add Item</button>
+          </div>
+          <div class="card-body">
+            <table>
+              <thead><tr><th>ID</th><th>Name</th><th>SKU</th><th>Category</th><th>Unit</th><th>Stock</th><th>Min Stock</th><th>Price</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody id="itemTable"><tr><td colspan="10" class="loading">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stock Movements -->
+      <div id="sec-movements" class="section">
+        <div class="card">
+          <div class="card-header">
+            <h3>🔄 Stock Movements</h3>
+            <button class="btn btn-primary btn-sm" onclick="openModal('addMovementModal')">+ Add Movement</button>
+          </div>
+          <div class="card-body">
+            <table>
+              <thead><tr><th>ID</th><th>Item ID</th><th>Type</th><th>Quantity</th><th>Reference</th><th>Note</th><th>Date</th></tr></thead>
+              <tbody id="movementTable"><tr><td colspan="7" class="loading">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Low Stock -->
+      <div id="sec-lowstock" class="section">
+        <div class="card">
+          <div class="card-header"><h3>⚠️ Low Stock Alerts</h3></div>
+          <div class="card-body">
+            <table>
+              <thead><tr><th>ID</th><th>Name</th><th>SKU</th><th>Category</th><th>Current Stock</th><th>Min Stock</th><th>Unit Price</th><th>Action</th></tr></thead>
+              <tbody id="lowStockTable"><tr><td colspan="8" class="loading">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Add Item Modal -->
+<div class="modal-overlay" id="addItemModal">
+  <div class="modal">
+    <h3>Add Item</h3>
+    <div class="alert alert-error" id="itemError"></div>
+    <div class="form-group"><label>Name</label><input type="text" id="itemName" placeholder="Office Chair"/></div>
+    <div class="form-group"><label>SKU</label><input type="text" id="itemSKU" placeholder="SKU-001"/></div>
+    <div class="form-group"><label>Category</label><input type="text" id="itemCat" placeholder="Furniture, IT, Stationery..."/></div>
+    <div class="form-group"><label>Unit</label>
+      <select id="itemUnit">
+        <option value="pcs">Pieces (pcs)</option>
+        <option value="kg">Kilogram (kg)</option>
+        <option value="ltr">Litre (ltr)</option>
+        <option value="box">Box</option>
+        <option value="set">Set</option>
+        <option value="mtr">Metre (mtr)</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Min Stock (Alert Threshold)</label><input type="number" id="itemMinStock" placeholder="10"/></div>
+    <div class="form-group"><label>Unit Price</label><input type="number" id="itemPrice" placeholder="50.00"/></div>
+    <div class="form-group"><label>Description</label><input type="text" id="itemDesc" placeholder="Optional"/></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="addItem()">Save</button>
+      <button class="btn" style="background:#e2e8f0" onclick="closeModal('addItemModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Item Modal -->
+<div class="modal-overlay" id="editItemModal">
+  <div class="modal">
+    <h3>Edit Item</h3>
+    <div class="alert alert-error" id="editItemError"></div>
+    <input type="hidden" id="editItemId"/>
+    <div class="form-group"><label>Name</label><input type="text" id="editItemName"/></div>
+    <div class="form-group"><label>Category</label><input type="text" id="editItemCat"/></div>
+    <div class="form-group"><label>Min Stock</label><input type="number" id="editItemMinStock"/></div>
+    <div class="form-group"><label>Unit Price</label><input type="number" id="editItemPrice"/></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="updateItem()">Update</button>
+      <button class="btn" style="background:#e2e8f0" onclick="closeModal('editItemModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Movement Modal -->
+<div class="modal-overlay" id="addMovementModal">
+  <div class="modal">
+    <h3>Stock Movement</h3>
+    <div class="alert alert-error" id="movError"></div>
+    <div class="form-group"><label>Item</label>
+      <select id="movItemId"><option value="">Select Item</option></select>
+    </div>
+    <div class="form-group"><label>Type</label>
+      <select id="movType">
+        <option value="in">Stock In ➕</option>
+        <option value="out">Stock Out ➖</option>
+        <option value="adjustment">Adjustment 🔧</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Quantity</label><input type="number" id="movQty" placeholder="10"/></div>
+    <div class="form-group"><label>Reference</label><input type="text" id="movRef" placeholder="PO-2024-0001 (optional)"/></div>
+    <div class="form-group"><label>Note</label><input type="text" id="movNote" placeholder="Optional"/></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="addMovement()">Save</button>
+      <button class="btn" style="background:#e2e8f0" onclick="closeModal('addMovementModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/api.js"></script>
+<script>
+  requireAuth();
+  const role = getRole();
+  document.getElementById("sidebarName").textContent = getUsername();
+  document.getElementById("sidebarRole").textContent = role.replace("_"," ").toUpperCase();
+
+  const titles = { dashboard:"Dashboard", items:"Item Master", movements:"Stock Movements", lowstock:"Low Stock Alerts" };
+  let catInst, stockStatusInst, valueInst, movInst;
+
+  function showSection(name, el) {
+    document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
+    document.querySelectorAll(".menu-item").forEach(m => m.classList.remove("active"));
+    document.getElementById("sec-" + name).classList.add("active");
+    el.classList.add("active");
+    document.getElementById("pageTitle").textContent = titles[name];
+    loadSection(name);
+  }
+
+  function loadSection(name) {
+    if      (name === "dashboard") loadDashboard();
+    else if (name === "items")     loadItems();
+    else if (name === "movements") loadMovements();
+    else if (name === "lowstock")  loadLowStock();
+  }
+
+  function openModal(id)  { document.getElementById(id).classList.add("open"); }
+  function closeModal(id) { document.getElementById(id).classList.remove("open"); }
+  function showErr(id, msg) { const e = document.getElementById(id); e.textContent = msg; e.style.display = "block"; }
+  function destroyChart(i) { if (i) i.destroy(); }
+
+  // ── Dashboard ────────────────────────────────────────
+  async function loadDashboard() {
+    const [summary, items, movements] = await Promise.all([
+      api("GET", "/inventory/summary"),
+      api("GET", "/inventory/item"),
+      api("GET", "/inventory/movement")
+    ]);
+
+    document.getElementById("statsGrid").innerHTML = `
+      <div class="stat-card"><div class="label">Total Items</div><div class="value">${summary.total_items}</div></div>
+      <div class="stat-card red"><div class="label">Low Stock</div><div class="value">${summary.low_stock}</div><div class="sub">Need reorder</div></div>
+      <div class="stat-card red"><div class="label">Out of Stock</div><div class="value">${summary.out_of_stock}</div></div>
+      <div class="stat-card green"><div class="label">Total Value</div><div class="value">${summary.total_value}</div></div>
+      <div class="stat-card"><div class="label">Categories</div><div class="value">${summary.categories}</div></div>
+    `;
+
+    document.getElementById("chartsGrid").style.display = "grid";
+
+    // 1. Items by category bar
+    const cats = [...new Set(items.map(i=>i.category))];
+    const catCounts = cats.map(c=>items.filter(i=>i.category===c).length);
+    destroyChart(catInst);
+    catInst = new Chart(document.getElementById("catChart"), {
+      type: "bar",
+      data: {
+        labels: cats.length ? cats : ["No Data"],
+        datasets: [{ label:"Items", data:catCounts, backgroundColor:"rgba(8,145,178,0.8)", borderRadius:8 }]
+      },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{grid:{display:false}},y:{grid:{color:"#f1f5f9"},ticks:{stepSize:1}}}, animation:{duration:800} }
+    });
+
+    // 2. Stock status donut
+    const normal   = items.filter(i=>i.current_stock > i.min_stock).length;
+    const low      = items.filter(i=>i.current_stock > 0 && i.current_stock <= i.min_stock).length;
+    const outStock = items.filter(i=>i.current_stock === 0).length;
+    destroyChart(stockStatusInst);
+    stockStatusInst = new Chart(document.getElementById("stockStatusChart"), {
+      type: "doughnut",
+      data: {
+        labels: ["Normal","Low Stock","Out of Stock"],
+        datasets: [{ data:[normal,low,outStock], backgroundColor:["#22c55e","#f59e0b","#ef4444"], borderWidth:0, hoverOffset:8 }]
+      },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:"bottom",labels:{padding:12,font:{size:11}}}}, animation:{animateScale:true,duration:800} }
+    });
+
+    // 3. Value by category bar
+    const catValues = cats.map(c=>items.filter(i=>i.category===c).reduce((s,i)=>s+(i.current_stock*i.unit_price),0));
+    destroyChart(valueInst);
+    valueInst = new Chart(document.getElementById("valueChart"), {
+      type: "bar",
+      data: {
+        labels: cats.length ? cats : ["No Data"],
+        datasets: [{ label:"Value", data:catValues, backgroundColor:"rgba(99,102,241,0.8)", borderRadius:8 }]
+      },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{grid:{display:false}},y:{grid:{color:"#f1f5f9"}}}, animation:{duration:900} }
+    });
+
+    // 4. Recent movements bar
+    const recent = movements.slice(0,8).reverse();
+    destroyChart(movInst);
+    movInst = new Chart(document.getElementById("movementChart"), {
+      type: "bar",
+      data: {
+        labels: recent.map(m=>`${m.type} #${m.item_id}`),
+        datasets: [{ label:"Qty", data:recent.map(m=>m.quantity), backgroundColor:recent.map(m=>m.type==="in"?"rgba(34,197,94,0.8)":m.type==="out"?"rgba(239,68,68,0.8)":"rgba(99,102,241,0.8)"), borderRadius:6 }]
+      },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{grid:{color:"#f1f5f9"}}}, animation:{duration:800} }
+    });
+  }
+
+  // ── Items ────────────────────────────────────────────
+  async function loadItems() {
+    const list = await api("GET", "/inventory/item");
+    const tb = document.getElementById("itemTable");
+    // Populate item dropdown for movements
+    const sel = document.getElementById("movItemId");
+    sel.innerHTML = `<option value="">Select Item</option>` + list.map(i=>`<option value="${i.id}">${i.name} (${i.sku}) - Stock: ${i.current_stock}</option>`).join("");
+
+    if (!list.length) { tb.innerHTML = `<tr><td colspan="10" style="text-align:center;color:#64748b">No items</td></tr>`; return; }
+    tb.innerHTML = list.map(i => {
+      const stockStatus = i.current_stock === 0 ? `<span class="out-badge">Out of Stock</span>` :
+                          i.current_stock <= i.min_stock ? `<span class="low-stock-badge">⚠️ Low</span>` :
+                          `<span class="stock-ok-badge">✅ OK</span>`;
+      return `
+        <tr>
+          <td>${i.id}</td>
+          <td><strong>${i.name}</strong></td>
+          <td><code>${i.sku}</code></td>
+          <td>${i.category}</td>
+          <td>${i.unit}</td>
+          <td><strong>${i.current_stock}</strong></td>
+          <td>${i.min_stock}</td>
+          <td>${i.unit_price}</td>
+          <td>${stockStatus}</td>
+          <td>
+            <button class="btn btn-warning btn-sm" onclick="openEditItem(${i.id},'${i.name}','${i.category}',${i.min_stock},${i.unit_price})">✏️</button>
+            <button class="btn btn-danger btn-sm" onclick="removeItem(${i.id})">🗑</button>
+          </td>
+        </tr>`;
+    }).join("");
+  }
+
+  async function addItem() {
+    try {
+      await api("POST", "/inventory/item", {
+        name:       document.getElementById("itemName").value,
+        sku:        document.getElementById("itemSKU").value,
+        category:   document.getElementById("itemCat").value,
+        unit:       document.getElementById("itemUnit").value,
+        min_stock:  parseFloat(document.getElementById("itemMinStock").value||0),
+        unit_price: parseFloat(document.getElementById("itemPrice").value||0),
+        description:document.getElementById("itemDesc").value||null
+      });
+      closeModal("addItemModal"); loadItems();
+    } catch(e) { showErr("itemError", e.message); }
+  }
+
+  function openEditItem(id, name, cat, minStock, price) {
+    document.getElementById("editItemId").value       = id;
+    document.getElementById("editItemName").value     = name;
+    document.getElementById("editItemCat").value      = cat;
+    document.getElementById("editItemMinStock").value = minStock;
+    document.getElementById("editItemPrice").value    = price;
+    openModal("editItemModal");
+  }
+
+  async function updateItem() {
+    const id = document.getElementById("editItemId").value;
+    try {
+      await api("PUT", `/inventory/item/${id}`, {
+        name:      document.getElementById("editItemName").value,
+        category:  document.getElementById("editItemCat").value,
+        min_stock: parseFloat(document.getElementById("editItemMinStock").value),
+        unit_price:parseFloat(document.getElementById("editItemPrice").value)
+      });
+      closeModal("editItemModal"); loadItems();
+    } catch(e) { showErr("editItemError", e.message); }
+  }
+
+  async function removeItem(id) {
+    if (!confirm("Deactivate this item?")) return;
+    await api("DELETE", `/inventory/item/${id}`);
+    loadItems();
+  }
+
+  // ── Movements ────────────────────────────────────────
+  async function loadMovements() {
+    const list = await api("GET", "/inventory/movement");
+    const tb = document.getElementById("movementTable");
+    if (!list.length) { tb.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#64748b">No movements</td></tr>`; return; }
+    tb.innerHTML = list.map(m => `
+      <tr>
+        <td>${m.id}</td>
+        <td>${m.item_id}</td>
+        <td><span class="status ${m.type==="in"?"approved":m.type==="out"?"rejected":"processed"}">${m.type}</span></td>
+        <td><strong>${m.quantity}</strong></td>
+        <td>${m.reference||"-"}</td>
+        <td>${m.note||"-"}</td>
+        <td>${m.created_at.slice(0,10)}</td>
+      </tr>`).join("");
+  }
+
+  async function addMovement() {
+    try {
+      await api("POST", "/inventory/movement", {
+        item_id:   parseInt(document.getElementById("movItemId").value),
+        type:      document.getElementById("movType").value,
+        quantity:  parseFloat(document.getElementById("movQty").value),
+        reference: document.getElementById("movRef").value||null,
+        note:      document.getElementById("movNote").value||null
+      });
+      closeModal("addMovementModal"); loadMovements(); loadItems();
+    } catch(e) { showErr("movError", e.message); }
+  }
+
+  // ── Low Stock ────────────────────────────────────────
+  async function loadLowStock() {
+    const list = await api("GET", "/inventory/item/low-stock");
+    const tb = document.getElementById("lowStockTable");
+    if (!list.length) { tb.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#16a34a">✅ All items are sufficiently stocked!</td></tr>`; return; }
+    tb.innerHTML = list.map(i => `
+      <tr style="background:#fef2f2">
+        <td>${i.id}</td>
+        <td><strong>${i.name}</strong></td>
+        <td><code>${i.sku}</code></td>
+        <td>${i.category}</td>
+        <td><strong style="color:#dc2626">${i.current_stock}</strong></td>
+        <td>${i.min_stock}</td>
+        <td>${i.unit_price}</td>
+        <td>
+          <button class="btn btn-primary btn-sm" onclick="quickRestock(${i.id})">+ Restock</button>
+        </td>
+      </tr>`).join("");
+  }
+
+  function quickRestock(itemId) {
+    document.getElementById("movItemId").value = itemId;
+    document.getElementById("movType").value   = "in";
+    openModal("addMovementModal");
+  }
+
+  document.addEventListener("click", e => {
+    if (e.target.classList.contains("modal-overlay")) e.target.classList.remove("open");
+  });
+
+  loadDashboard();
+</script>
+</body>
+</html>

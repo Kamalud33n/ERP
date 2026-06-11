@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ERP — Admin Dashboard</title>
+  <link rel="stylesheet" href="/static/css/style.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    .charts-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+      margin-top: 24px;
+    }
+    .chart-card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 20px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+    }
+    .chart-card h4 {
+      font-size: 14px;
+      font-weight: 700;
+      color: #1e293b;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .chart-wrap { position: relative; height: 220px; }
+    @media(max-width:900px){ .charts-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <h2>⚡ ERP System</h2>
+      <p>Admin Panel</p>
+    </div>
+    <nav class="sidebar-menu">
+      <div class="menu-section">Main</div>
+      <button class="menu-item active" onclick="showSection('dashboard', this)"><span class="icon">📊</span> Dashboard</button>
+      <div class="menu-section">System</div>
+      <button class="menu-item" onclick="showSection('users', this)"><span class="icon">🔐</span> User Management</button>
+      <div class="menu-section">HR</div>
+      <button class="menu-item" onclick="showSection('employees', this)"><span class="icon">👥</span> Employees</button>
+      <button class="menu-item" onclick="showSection('leaves', this)"><span class="icon">📅</span> Leave Requests</button>
+      <button class="menu-item" onclick="showSection('attendance', this)"><span class="icon">✅</span> Attendance</button>
+      <button class="menu-item" onclick="showSection('payroll', this)"><span class="icon">💰</span> Payroll</button>
+      <div class="menu-section">Finance</div>
+      <button class="menu-item" onclick="showSection('expenses', this)"><span class="icon">🧾</span> Expenses</button>
+      <button class="menu-item" onclick="showSection('budgets', this)"><span class="icon">📈</span> Budgets</button>
+      <button class="menu-item" onclick="showSection('gl', this)"><span class="icon">📒</span> General Ledger</button>
+      <div class="menu-section">Procurement</div>
+      <button class="menu-item" onclick="window.location.href='/procurement.html'"><span class="icon">📋</span> Procurement</button>
+      <div class="menu-section">Operations</div>
+      <button class="menu-item" onclick="window.location.href='/inventory.html'"><span class="icon">📦</span> Inventory</button>
+      <button class="menu-item" onclick="window.location.href='/asset.html'"><span class="icon">🏷️</span> Assets</button>
+    </nav>
+    <div class="sidebar-user">
+      <div class="name" id="sidebarName">Admin</div>
+      <div class="role">Administrator</div>
+      <button class="logout" onclick="logout()">← Logout</button>
+    </div>
+  </aside>
+
+  <div class="main-content">
+    <div class="topbar">
+      <h1 id="pageTitle">Dashboard</h1>
+      <span class="badge">Admin</span>
+    </div>
+    <div class="page-content">
+
+      <!-- Dashboard -->
+      <div id="sec-dashboard" class="section active">
+        <div class="stats-grid" id="statsGrid"><div class="loading">Loading...</div></div>
+        <div class="charts-grid" id="chartsGrid" style="display:none">
+          <div class="chart-card">
+            <h4>🍩 Leave Status</h4>
+            <div class="chart-wrap"><canvas id="leaveChart"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <h4>💰 Budget Overview</h4>
+            <div class="chart-wrap"><canvas id="budgetChart"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <h4>🧾 Expense by Category</h4>
+            <div class="chart-wrap"><canvas id="expenseChart"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <h4>👥 Employees by Department</h4>
+            <div class="chart-wrap"><canvas id="deptChart"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Employees -->
+      <div id="sec-employees" class="section">
+        <div class="card">
+          <div class="card-header">
+            <h3>👥 Employees</h3>
+            <button class="btn btn-primary btn-sm" onclick="openModal('addEmpModal')">+ Add Employee</button>
+          </div>
+          <div class="card-body">
+            <table>
+              <thead><tr><th>ID</th><th>Name</th><th>Department</th><th>Designation</th><th>Salary</th><th>Join Date</th><th>Actions</th></tr></thead>
+              <tbody id="employeeTable"><tr><td colspan="7" class="loading">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Leaves -->
+      <div id="sec-leaves" class="section">
+        <div class="card">
+          <div class="card-header"><h3>📅 Leave Requests</h3></div>
+          <div class="card-body">
+            <table>
+              <thead><tr><th>ID</th><th>Emp ID</th><th>Type</th><th>Start</th><th>End</th><th>Days</th><th>Reason</th><th>Status</th><th>Action</th></tr></thead>
+              <tbody id="leaveTable"><tr><td colspan="9" class="loading">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Attendance -->
+      <div id="sec-attendance" class="section">
+        <div class="card">
+          <div class="card-header">
+            <h3>✅ Attendance</h3>
+            <button class="btn btn-primary btn-sm" onclick="openModal('markAttModal')">+ Mark Attendance</button>
+          </div>
+          <div class="card-body">
+            <table>
+              <thead><tr><th>ID</th><th>Emp ID</th><th>Date</th><th>Check In</th><th>Check Out</th><th>Status</th></tr></thead>
+              <tbody id="attendanceTable"><tr><td colspan="6" class="loading">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Payroll -->
+      <div id="sec-payroll" class="section">
+        <div class="card">
+          <div class="card-header">
+            <h3>💰 Payroll</h3>
+            <button class="btn btn-primary btn-sm" onclick="openModal('payrollModal')">+ Process Payroll</button>
+          </div>
+          <div class="card-body">
+            <table>
+              <thead><tr><th>ID</th><th>Emp ID</th><th>Month</th><th>Basic</th><th>Allowances</th><th>Deductions</th><th>Net Salary</th><th>Status</th></tr></thead>
+              <tbody id="payrollTable"><tr><td colspan="8" class="loading">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Expenses -->
+      <div id="sec-expenses" class="section">
+        <div class="card">
+          <div class="card-header">
+            <h3>🧾 Expenses</h3>
+            <button class="btn btn-primary btn-sm" onclick="openModal('addExpModal')">+ Add Expense</button>
+          </div>
+          <div class="card-body">
+            <table>
+              <thead><tr><th>ID</th><th>Title</th><th>Amount</th><th>Category</th><th>Dept</th><th>Date</th><th>Status</th><th>Action</th></tr></thead>
+              <tbody id="expenseTable"><tr><td colspan="8" class="loading">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Budgets -->
+      <div id="sec-budgets" class="section">
+        <div class="card">
+          <div class="card-header">
+            <h3>📈 Budgets</h3>
+            <button class="btn btn-primary btn-sm" onclick="openModal('addBudModal')">+ Add Budget</button>
+          </div>
+          <div class="card-body">
+            <table>
+              <thead><tr><th>ID</th><th>Department</th><th>Category</th><th>Month</th><th>Budget</th><th>Spent</th><th>Remaining</th></tr></thead>
+              <tbody id="budgetTable"><tr><td colspan="7" class="loading">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Users -->
+      <div id="sec-users" class="section">
+        <div class="card">
+          <div class="card-header">
+            <h3>🔐 User Management</h3>
+            <button class="btn btn-primary btn-sm" onclick="openModal('addUserModal')">+ Add User</button>
+          </div>
+          <div class="card-body">
+            <table>
+              <thead><tr><th>ID</th><th>Username</th><th>Email</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody id="userTable"><tr><td colspan="6" class="loading">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- GL -->
+      <div id="sec-gl" class="section">
+        <div class="card">
+          <div class="card-header">
+            <h3>📒 General Ledger</h3>
+            <button class="btn btn-primary btn-sm" onclick="openModal('addGLModal')">+ Add Entry</button>
+          </div>
+          <div class="card-body">
+            <table>
+              <thead><tr><th>ID</th><th>Date</th><th>Description</th><th>Debit</th><th>Credit</th><th>Balance</th><th>Type</th><th>Ref</th></tr></thead>
+              <tbody id="glTable"><tr><td colspan="8" class="loading">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Add User Modal -->
+<div class="modal-overlay" id="addUserModal">
+  <div class="modal">
+    <h3>Add User</h3>
+    <div class="alert alert-error" id="userError"></div>
+    <div class="form-group"><label>Username</label><input type="text" id="newUsername" placeholder="johndoe"/></div>
+    <div class="form-group"><label>Email</label><input type="email" id="newEmail" placeholder="john@company.com"/></div>
+    <div class="form-group"><label>Password</label><input type="password" id="newPassword" placeholder="password"/></div>
+    <div class="form-group"><label>Role</label><select id="newRole"><option value="employee">Employee</option><option value="hr_manager">HR Manager</option><option value="finance">Finance</option><option value="admin">Admin</option></select></div>
+    <div class="modal-footer"><button class="btn btn-primary" onclick="addUser()">Create User</button><button class="btn" style="background:#e2e8f0" onclick="closeModal('addUserModal')">Cancel</button></div>
+  </div>
+</div>
+<div class="modal-overlay" id="editUserModal">
+  <div class="modal">
+    <h3>Edit User</h3>
+    <div class="alert alert-error" id="editUserError"></div>
+    <input type="hidden" id="editUserId"/>
+    <div class="form-group"><label>Role</label><select id="editUserRole"><option value="employee">Employee</option><option value="hr_manager">HR Manager</option><option value="finance">Finance</option><option value="admin">Admin</option></select></div>
+    <div class="form-group"><label>Status</label><select id="editUserStatus"><option value="true">Active</option><option value="false">Inactive</option></select></div>
+    <div class="modal-footer"><button class="btn btn-primary" onclick="updateUser()">Update</button><button class="btn" style="background:#e2e8f0" onclick="closeModal('editUserModal')">Cancel</button></div>
+  </div>
+</div>
+<!-- Add Employee Modal -->
+<div class="modal-overlay" id="addEmpModal">
+  <div class="modal">
+    <h3>Add Employee</h3>
+    <div class="alert alert-error" id="empError"></div>
+    <div class="form-group"><label>User ID</label><input type="number" id="empUserId" placeholder="User ID"/></div>
+    <div class="form-group"><label>First Name</label><input type="text" id="empFirst" placeholder="First name"/></div>
+    <div class="form-group"><label>Last Name</label><input type="text" id="empLast" placeholder="Last name"/></div>
+    <div class="form-group"><label>Phone</label><input type="text" id="empPhone" placeholder="+968 XXXX XXXX"/></div>
+    <div class="form-group"><label>Department</label><input type="text" id="empDept" placeholder="HR, Finance, IT..."/></div>
+    <div class="form-group"><label>Designation</label><input type="text" id="empDesig" placeholder="Manager, Developer..."/></div>
+    <div class="form-group"><label>Salary</label><input type="number" id="empSalary" placeholder="5000"/></div>
+    <div class="form-group"><label>Join Date</label><input type="date" id="empJoin"/></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="saveEmployee()">Save</button>
+      <button class="btn" style="background:#e2e8f0" onclick="closeModal('addEmpModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Employee Modal -->
+<div class="modal-overlay" id="editEmpModal">
+  <div class="modal">
+    <h3>Edit Employee</h3>
+    <div class="alert alert-error" id="editEmpError"></div>
+    <input type="hidden" id="editEmpId"/>
+    <div class="form-group"><label>First Name</label><input type="text" id="editEmpFirst"/></div>
+    <div class="form-group"><label>Last Name</label><input type="text" id="editEmpLast"/></div>
+    <div class="form-group"><label>Phone</label><input type="text" id="editEmpPhone"/></div>
+    <div class="form-group"><label>Department</label><input type="text" id="editEmpDept"/></div>
+    <div class="form-group"><label>Designation</label><input type="text" id="editEmpDesig"/></div>
+    <div class="form-group"><label>Salary</label><input type="number" id="editEmpSalary"/></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="updateEmployee()">Update</button>
+      <button class="btn" style="background:#e2e8f0" onclick="closeModal('editEmpModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Mark Attendance Modal -->
+<div class="modal-overlay" id="markAttModal">
+  <div class="modal">
+    <h3>Mark Attendance</h3>
+    <div class="alert alert-error" id="attError"></div>
+    <div class="form-group"><label>Employee ID</label><input type="number" id="attEmpId"/></div>
+    <div class="form-group"><label>Date</label><input type="date" id="attDate"/></div>
+    <div class="form-group"><label>Check In</label><input type="datetime-local" id="attCheckIn"/></div>
+    <div class="form-group"><label>Check Out</label><input type="datetime-local" id="attCheckOut"/></div>
+    <div class="form-group"><label>Status</label>
+      <select id="attStatus">
+        <option value="present">Present</option>
+        <option value="absent">Absent</option>
+        <option value="late">Late</option>
+        <option value="half_day">Half Day</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="markAttendance()">Save</button>
+      <button class="btn" style="background:#e2e8f0" onclick="closeModal('markAttModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Process Payroll Modal -->
+<div class="modal-overlay" id="payrollModal">
+  <div class="modal">
+    <h3>Process Payroll</h3>
+    <div class="alert alert-error" id="payError"></div>
+    <div class="form-group"><label>Employee ID</label><input type="number" id="payEmpId"/></div>
+    <div class="form-group"><label>Month (YYYY-MM)</label><input type="text" id="payMonth" placeholder="2024-06"/></div>
+    <div class="form-group"><label>Basic Salary</label><input type="number" id="payBasic"/></div>
+    <div class="form-group"><label>Allowances</label><input type="number" id="payAllow" placeholder="0"/></div>
+    <div class="form-group"><label>Deductions</label><input type="number" id="payDeduct" placeholder="0"/></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="processPayroll()">Process</button>
+      <button class="btn" style="background:#e2e8f0" onclick="closeModal('payrollModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Expense Modal -->
+<div class="modal-overlay" id="addExpModal">
+  <div class="modal">
+    <h3>Add Expense</h3>
+    <div class="alert alert-error" id="expError"></div>
+    <div class="form-group"><label>Title</label><input type="text" id="expTitle"/></div>
+    <div class="form-group"><label>Amount</label><input type="number" id="expAmount"/></div>
+    <div class="form-group"><label>Category</label>
+      <select id="expCategory">
+        <option value="travel">Travel</option>
+        <option value="office">Office</option>
+        <option value="software">Software</option>
+        <option value="utilities">Utilities</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Department</label><input type="text" id="expDept"/></div>
+    <div class="form-group"><label>Date</label><input type="date" id="expDate"/></div>
+    <div class="form-group"><label>Description</label><input type="text" id="expDesc"/></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="submitExpense()">Submit</button>
+      <button class="btn" style="background:#e2e8f0" onclick="closeModal('addExpModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Budget Modal -->
+<div class="modal-overlay" id="addBudModal">
+  <div class="modal">
+    <h3>Add Budget</h3>
+    <div class="alert alert-error" id="budError"></div>
+    <div class="form-group"><label>Department</label><input type="text" id="budDept"/></div>
+    <div class="form-group"><label>Category</label><input type="text" id="budCat"/></div>
+    <div class="form-group"><label>Amount</label><input type="number" id="budAmount"/></div>
+    <div class="form-group"><label>Month (YYYY-MM)</label><input type="text" id="budMonth" placeholder="2024-06"/></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="addBudget()">Save</button>
+      <button class="btn" style="background:#e2e8f0" onclick="closeModal('addBudModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add GL Modal -->
+<div class="modal-overlay" id="addGLModal">
+  <div class="modal">
+    <h3>Add GL Entry</h3>
+    <div class="alert alert-error" id="glError"></div>
+    <div class="form-group"><label>Date</label><input type="date" id="glDate"/></div>
+    <div class="form-group"><label>Description</label><input type="text" id="glDesc"/></div>
+    <div class="form-group"><label>Debit</label><input type="number" id="glDebit" placeholder="0"/></div>
+    <div class="form-group"><label>Credit</label><input type="number" id="glCredit" placeholder="0"/></div>
+    <div class="form-group"><label>Account Type</label>
+      <select id="glType">
+        <option value="asset">Asset</option>
+        <option value="liability">Liability</option>
+        <option value="income">Income</option>
+        <option value="expense">Expense</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Reference</label><input type="text" id="glRef" placeholder="Optional"/></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="addGL()">Save</button>
+      <button class="btn" style="background:#e2e8f0" onclick="closeModal('addGLModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/api.js"></script>
+<script>
+  requireAuth();
+  if (getRole() !== "admin") redirectByRole(getRole());
+  document.getElementById("sidebarName").textContent = getUsername();
+
+  const titles = {
+    dashboard:"Dashboard", employees:"Employees", leaves:"Leave Requests",
+    attendance:"Attendance", payroll:"Payroll", expenses:"Expenses",
+    budgets:"Budgets", gl:"General Ledger", users:"User Management"
+  };
+
+  // Chart instances
+  let leaveChartInst, budgetChartInst, expenseChartInst, deptChartInst;
+
+  function showSection(name, el) {
+    document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
+    document.querySelectorAll(".menu-item").forEach(m => m.classList.remove("active"));
+    document.getElementById("sec-" + name).classList.add("active");
+    el.classList.add("active");
+    document.getElementById("pageTitle").textContent = titles[name];
+    loadSection(name);
+  }
+
+  function loadSection(name) {
+    if      (name === "dashboard")  loadDashboard();
+    else if (name === "employees")  loadEmployees();
+    else if (name === "leaves")     loadLeaves();
+    else if (name === "attendance") loadAttendance();
+    else if (name === "payroll")    loadPayroll();
+    else if (name === "expenses")   loadExpenses();
+    else if (name === "budgets")    loadBudgets();
+    else if (name === "gl")         loadGL();
+    else if (name === "users")       loadUsers();
+  }
+
+  function openModal(id)  { document.getElementById(id).classList.add("open"); }
+  function closeModal(id) { document.getElementById(id).classList.remove("open"); }
+  function showErr(id, msg) { const e = document.getElementById(id); e.textContent = msg; e.style.display = "block"; }
+
+  function destroyChart(inst) { if (inst) inst.destroy(); }
+
+  // ── Dashboard + Charts ───────────────────────────────
+  async function loadDashboard() {
+    const [d, leaves, expenses, budgets, employees] = await Promise.all([
+      api("GET", "/dashboard/"),
+      api("GET", "/hr/leave"),
+      api("GET", "/finance/expense"),
+      api("GET", "/finance/budget"),
+      api("GET", "/employee/")
+    ]);
+
+    document.getElementById("statsGrid").innerHTML = `
+      <div class="stat-card"><div class="label">Total Employees</div><div class="value">${d.total_employees}</div></div>
+      <div class="stat-card"><div class="label">Total Users</div><div class="value">${d.total_users}</div></div>
+      <div class="stat-card yellow"><div class="label">Pending Leaves</div><div class="value">${d.pending_leaves}</div></div>
+      <div class="stat-card yellow"><div class="label">Pending Expenses</div><div class="value">${d.pending_expenses}</div></div>
+      <div class="stat-card green"><div class="label">Total Budget</div><div class="value">${d.total_budget}</div></div>
+      <div class="stat-card red"><div class="label">Total Spent</div><div class="value">${d.total_spent}</div></div>
+      <div class="stat-card green"><div class="label">Remaining Budget</div><div class="value">${d.budget_remaining}</div></div>
+      <div class="stat-card"><div class="label">Payrolls Processed</div><div class="value">${d.total_payrolls}</div></div>
+    `;
+
+    document.getElementById("chartsGrid").style.display = "grid";
+
+    // 1. Leave status donut
+    const lPending  = leaves.filter(l => l.status === "pending").length;
+    const lApproved = leaves.filter(l => l.status === "approved").length;
+    const lRejected = leaves.filter(l => l.status === "rejected").length;
+    destroyChart(leaveChartInst);
+    leaveChartInst = new Chart(document.getElementById("leaveChart"), {
+      type: "doughnut",
+      data: {
+        labels: ["Pending", "Approved", "Rejected"],
+        datasets: [{
+          data: [lPending, lApproved, lRejected],
+          backgroundColor: ["#f59e0b","#22c55e","#ef4444"],
+          borderWidth: 0,
+          hoverOffset: 8
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: "bottom", labels: { padding: 16, font: { size: 12 } } }
+        },
+        animation: { animateScale: true, duration: 800 }
+      }
+    });
+
+    // 2. Budget bar chart
+    const budDepts  = [...new Set(budgets.map(b => b.department))];
+    const budAmts   = budDepts.map(d => budgets.filter(b => b.department === d).reduce((s,b) => s+b.amount, 0));
+    const budSpents = budDepts.map(d => budgets.filter(b => b.department === d).reduce((s,b) => s+b.spent, 0));
+    destroyChart(budgetChartInst);
+    budgetChartInst = new Chart(document.getElementById("budgetChart"), {
+      type: "bar",
+      data: {
+        labels: budDepts.length ? budDepts : ["No Data"],
+        datasets: [
+          { label: "Budget", data: budAmts,   backgroundColor: "rgba(37,99,235,0.8)",  borderRadius: 6 },
+          { label: "Spent",  data: budSpents, backgroundColor: "rgba(239,68,68,0.8)",  borderRadius: 6 }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: "bottom" } },
+        scales: { x: { grid: { display: false } }, y: { grid: { color: "#f1f5f9" } } },
+        animation: { duration: 800 }
+      }
+    });
+
+    // 3. Expense by category donut
+    const cats = ["travel","office","software","utilities","other"];
+    const catAmts = cats.map(c => expenses.filter(e => e.category === c && e.status === "approved").reduce((s,e) => s+e.amount, 0));
+    destroyChart(expenseChartInst);
+    expenseChartInst = new Chart(document.getElementById("expenseChart"), {
+      type: "doughnut",
+      data: {
+        labels: ["Travel","Office","Software","Utilities","Other"],
+        datasets: [{
+          data: catAmts,
+          backgroundColor: ["#6366f1","#f59e0b","#22c55e","#06b6d4","#f43f5e"],
+          borderWidth: 0,
+          hoverOffset: 8
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: "bottom", labels: { padding: 12, font: { size: 11 } } } },
+        animation: { animateScale: true, duration: 900 }
+      }
+    });
+
+    // 4. Employees by department bar
+    const depts    = [...new Set(employees.map(e => e.department))];
+    const deptCounts = depts.map(d => employees.filter(e => e.department === d).length);
+    destroyChart(deptChartInst);
+    deptChartInst = new Chart(document.getElementById("deptChart"), {
+      type: "bar",
+      data: {
+        labels: depts.length ? depts : ["No Data"],
+        datasets: [{
+          label: "Employees",
+          data: deptCounts,
+          backgroundColor: ["#6366f1","#f59e0b","#22c55e","#06b6d4","#f43f5e","#2563eb"],
+          borderRadius: 8
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { x: { grid: { display: false } }, y: { grid: { color: "#f1f5f9" }, ticks: { stepSize: 1 } } },
+        animation: { duration: 800 }
+      }
+    });
+  }
+
+  // ── Employees ────────────────────────────────────────
+  async function loadEmployees() {
+    const list = await api("GET", "/employee/");
+    const tb = document.getElementById("employeeTable");
+    if (!list.length) { tb.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#64748b">No employees</td></tr>`; return; }
+    tb.innerHTML = list.map(e => `
+      <tr>
+        <td>${e.id}</td><td>${e.first_name} ${e.last_name}</td>
+        <td>${e.department}</td><td>${e.designation}</td>
+        <td>${e.salary}</td><td>${e.join_date || "-"}</td>
+        <td>
+          <button class="btn btn-warning btn-sm" onclick="openEditEmp(${e.id},'${e.first_name}','${e.last_name}','${e.phone||''}','${e.department}','${e.designation}',${e.salary})">✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteEmployee(${e.id})">🗑</button>
+        </td>
+      </tr>`).join("");
+  }
+
+  async function saveEmployee() {
+    try {
+      const userId = document.getElementById("empUserId").value;
+      await api("POST", `/employee/?user_id=${userId}`, {
+        first_name: document.getElementById("empFirst").value,
+        last_name:  document.getElementById("empLast").value,
+        phone:      document.getElementById("empPhone").value,
+        department: document.getElementById("empDept").value,
+        designation:document.getElementById("empDesig").value,
+        salary:     parseFloat(document.getElementById("empSalary").value),
+        join_date:  document.getElementById("empJoin").value
+      });
+      closeModal("addEmpModal"); loadEmployees();
+    } catch(e) { showErr("empError", e.message); }
+  }
+
+  function openEditEmp(id, first, last, phone, dept, desig, salary) {
+    document.getElementById("editEmpId").value    = id;
+    document.getElementById("editEmpFirst").value = first;
+    document.getElementById("editEmpLast").value  = last;
+    document.getElementById("editEmpPhone").value = phone;
+    document.getElementById("editEmpDept").value  = dept;
+    document.getElementById("editEmpDesig").value = desig;
+    document.getElementById("editEmpSalary").value= salary;
+    openModal("editEmpModal");
+  }
+
+  async function updateEmployee() {
+    const id = document.getElementById("editEmpId").value;
+    try {
+      await api("PUT", `/employee/${id}`, {
+        first_name: document.getElementById("editEmpFirst").value,
+        last_name:  document.getElementById("editEmpLast").value,
+        phone:      document.getElementById("editEmpPhone").value,
+        department: document.getElementById("editEmpDept").value,
+        designation:document.getElementById("editEmpDesig").value,
+        salary:     parseFloat(document.getElementById("editEmpSalary").value)
+      });
+      closeModal("editEmpModal"); loadEmployees();
+    } catch(e) { showErr("editEmpError", e.message); }
+  }
+
+  async function deleteEmployee(id) {
+    if (!confirm("Delete this employee?")) return;
+    try { await api("DELETE", `/employee/${id}`); loadEmployees(); }
+    catch(e) { alert(e.message); }
+  }
+
+  // ── Leaves ───────────────────────────────────────────
+  async function loadLeaves() {
+    const list = await api("GET", "/hr/leave");
+    const tb = document.getElementById("leaveTable");
+    if (!list.length) { tb.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#64748b">No leave requests</td></tr>`; return; }
+    tb.innerHTML = list.map(l => `
+      <tr>
+        <td>${l.id}</td><td>${l.employee_id}</td><td>${l.leave_type}</td>
+        <td>${l.start_date}</td><td>${l.end_date}</td><td>${l.days}</td>
+        <td>${l.reason||"-"}</td>
+        <td><span class="status ${l.status}">${l.status}</span></td>
+        <td>${l.status==="pending"?`
+          <button class="btn btn-success btn-sm" onclick="updateLeave(${l.id},'approved')">✓</button>
+          <button class="btn btn-danger btn-sm" onclick="updateLeave(${l.id},'rejected')">✗</button>`:"-"}
+        </td>
+      </tr>`).join("");
+  }
+
+  async function updateLeave(id, status) {
+    await api("PUT", `/hr/leave/${id}`, { status, approved_by: 1 });
+    loadLeaves();
+  }
+
+  // ── Attendance ───────────────────────────────────────
+  async function loadAttendance() {
+    const list = await api("GET", "/hr/attendance");
+    const tb = document.getElementById("attendanceTable");
+    if (!list.length) { tb.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#64748b">No records</td></tr>`; return; }
+    tb.innerHTML = list.map(a => `
+      <tr>
+        <td>${a.id}</td><td>${a.employee_id}</td><td>${a.date}</td>
+        <td>${a.check_in?a.check_in.slice(11,16):"-"}</td>
+        <td>${a.check_out?a.check_out.slice(11,16):"-"}</td>
+        <td><span class="status ${a.status}">${a.status}</span></td>
+      </tr>`).join("");
+  }
+
+  async function markAttendance() {
+    try {
+      await api("POST", "/hr/attendance", {
+        employee_id: parseInt(document.getElementById("attEmpId").value),
+        date:        document.getElementById("attDate").value,
+        check_in:    document.getElementById("attCheckIn").value||null,
+        check_out:   document.getElementById("attCheckOut").value||null,
+        status:      document.getElementById("attStatus").value
+      });
+      closeModal("markAttModal"); loadAttendance();
+    } catch(e) { showErr("attError", e.message); }
+  }
+
+  // ── Payroll ──────────────────────────────────────────
+  async function loadPayroll() {
+    const list = await api("GET", "/hr/payroll");
+    const tb = document.getElementById("payrollTable");
+    if (!list.length) { tb.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#64748b">No records</td></tr>`; return; }
+    tb.innerHTML = list.map(p => `
+      <tr>
+        <td>${p.id}</td><td>${p.employee_id}</td><td>${p.month}</td>
+        <td>${p.basic_salary}</td><td>${p.allowances}</td><td>${p.deductions}</td>
+        <td><strong>${p.net_salary}</strong></td>
+        <td><span class="status ${p.status}">${p.status}</span></td>
+      </tr>`).join("");
+  }
+
+  async function processPayroll() {
+    try {
+      await api("POST", "/hr/payroll", {
+        employee_id:  parseInt(document.getElementById("payEmpId").value),
+        month:        document.getElementById("payMonth").value,
+        basic_salary: parseFloat(document.getElementById("payBasic").value),
+        allowances:   parseFloat(document.getElementById("payAllow").value||0),
+        deductions:   parseFloat(document.getElementById("payDeduct").value||0)
+      });
+      closeModal("payrollModal"); loadPayroll();
+    } catch(e) { showErr("payError", e.message); }
+  }
+
+  // ── Expenses ─────────────────────────────────────────
+  async function loadExpenses() {
+    const list = await api("GET", "/finance/expense");
+    const tb = document.getElementById("expenseTable");
+    if (!list.length) { tb.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#64748b">No expenses</td></tr>`; return; }
+    tb.innerHTML = list.map(e => `
+      <tr>
+        <td>${e.id}</td><td>${e.title}</td><td>${e.amount}</td>
+        <td>${e.category}</td><td>${e.department}</td><td>${e.date}</td>
+        <td><span class="status ${e.status}">${e.status}</span></td>
+        <td>${e.status==="pending"?`
+          <button class="btn btn-success btn-sm" onclick="updateExpense(${e.id},'approved')">✓</button>
+          <button class="btn btn-danger btn-sm" onclick="updateExpense(${e.id},'rejected')">✗</button>`:"-"}
+        </td>
+      </tr>`).join("");
+  }
+
+  async function submitExpense() {
+    try {
+      await api("POST", "/finance/expense", {
+        title:       document.getElementById("expTitle").value,
+        amount:      parseFloat(document.getElementById("expAmount").value),
+        category:    document.getElementById("expCategory").value,
+        department:  document.getElementById("expDept").value,
+        date:        document.getElementById("expDate").value,
+        description: document.getElementById("expDesc").value||null
+      });
+      closeModal("addExpModal"); loadExpenses();
+    } catch(e) { showErr("expError", e.message); }
+  }
+
+  async function updateExpense(id, status) {
+    await api("PUT", `/finance/expense/${id}`, { status, approved_by: 1 });
+    loadExpenses();
+  }
+
+  // ── Budgets ──────────────────────────────────────────
+  async function loadBudgets() {
+    const list = await api("GET", "/finance/budget");
+    const tb = document.getElementById("budgetTable");
+    if (!list.length) { tb.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#64748b">No budgets</td></tr>`; return; }
+    tb.innerHTML = list.map(b => `
+      <tr>
+        <td>${b.id}</td><td>${b.department}</td><td>${b.category}</td>
+        <td>${b.month}</td><td>${b.amount}</td><td>${b.spent}</td>
+        <td><strong>${(b.amount-b.spent).toFixed(2)}</strong></td>
+      </tr>`).join("");
+  }
+
+  async function addBudget() {
+    try {
+      await api("POST", "/finance/budget", {
+        department: document.getElementById("budDept").value,
+        category:   document.getElementById("budCat").value,
+        amount:     parseFloat(document.getElementById("budAmount").value),
+        month:      document.getElementById("budMonth").value
+      });
+      closeModal("addBudModal"); loadBudgets();
+    } catch(e) { showErr("budError", e.message); }
+  }
+
+  // ── GL ───────────────────────────────────────────────
+  async function loadGL() {
+    const list = await api("GET", "/finance/gl");
+    const tb = document.getElementById("glTable");
+    if (!list.length) { tb.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#64748b">No entries</td></tr>`; return; }
+    tb.innerHTML = list.map(g => `
+      <tr>
+        <td>${g.id}</td><td>${g.date}</td><td>${g.description}</td>
+        <td>${g.debit}</td><td>${g.credit}</td>
+        <td><strong>${g.balance}</strong></td>
+        <td>${g.account_type}</td><td>${g.reference||"-"}</td>
+      </tr>`).join("");
+  }
+
+  async function addGL() {
+    try {
+      await api("POST", "/finance/gl", {
+        date:         document.getElementById("glDate").value,
+        description:  document.getElementById("glDesc").value,
+        debit:        parseFloat(document.getElementById("glDebit").value||0),
+        credit:       parseFloat(document.getElementById("glCredit").value||0),
+        account_type: document.getElementById("glType").value,
+        reference:    document.getElementById("glRef").value||null
+      });
+      closeModal("addGLModal"); loadGL();
+    } catch(e) { showErr("glError", e.message); }
+  }
+
+  // ── Users ───────────────────────────────────────────
+  async function loadUsers() {
+    const list = await api("GET", "/admin/users");
+    const tb = document.getElementById("userTable");
+    if (!list.length) { tb.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#64748b">No users</td></tr>`; return; }
+    tb.innerHTML = list.map(u => `
+      <tr>
+        <td>${u.id}</td><td>${u.username}</td><td>${u.email}</td>
+        <td><span class="status ${u.role === "admin" ? "processed" : "present"}">${u.role}</span></td>
+        <td><span class="status ${u.is_active ? "approved" : "rejected"}">${u.is_active ? "Active" : "Inactive"}</span></td>
+        <td>
+          <button class="btn btn-warning btn-sm" onclick="openEditUser(${u.id},'${u.role}',${u.is_active})">✏️ Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id})">🗑 Delete</button>
+        </td>
+      </tr>`).join("");
+  }
+
+  async function addUser() {
+    const errEl = document.getElementById("userError");
+    errEl.style.display = "none";
+    try {
+      await api("POST", "/admin/users", {
+        username: document.getElementById("newUsername").value,
+        email:    document.getElementById("newEmail").value,
+        password: document.getElementById("newPassword").value,
+        role:     document.getElementById("newRole").value
+      });
+      closeModal("addUserModal");
+      loadUsers();
+    } catch(e) { showErr("userError", e.message); }
+  }
+
+  function openEditUser(id, role, isActive) {
+    document.getElementById("editUserId").value     = id;
+    document.getElementById("editUserRole").value   = role;
+    document.getElementById("editUserStatus").value = String(isActive);
+    openModal("editUserModal");
+  }
+
+  async function updateUser() {
+    const id = document.getElementById("editUserId").value;
+    try {
+      await api("PUT", `/admin/users/${id}`, {
+        role:      document.getElementById("editUserRole").value,
+        is_active: document.getElementById("editUserStatus").value === "true"
+      });
+      closeModal("editUserModal");
+      loadUsers();
+    } catch(e) { showErr("editUserError", e.message); }
+  }
+
+  async function deleteUser(id) {
+    if (!confirm("Delete this user?")) return;
+    try { await api("DELETE", `/admin/users/${id}`); loadUsers(); }
+    catch(e) { alert(e.message); }
+  }
+
+  document.addEventListener("click", e => {
+    if (e.target.classList.contains("modal-overlay")) e.target.classList.remove("open");
+  });
+
+  loadDashboard();
+</script>
+</body>
+</html>

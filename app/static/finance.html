@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ERP — Finance Dashboard</title>
+  <link rel="stylesheet" href="/static/css/style.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    .charts-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+      margin-top: 24px;
+    }
+    .chart-card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 20px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+    }
+    .chart-card h4 {
+      font-size: 14px;
+      font-weight: 700;
+      color: #1e293b;
+      margin-bottom: 16px;
+    }
+    .chart-wrap { position: relative; height: 220px; }
+    .progress-wrap { margin-top: 8px; }
+    .progress-item { margin-bottom: 14px; }
+    .progress-label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
+    .progress-bar { height: 10px; background: #e2e8f0; border-radius: 10px; overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 10px; transition: width 1s ease; }
+    @media(max-width:900px){ .charts-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <h2>⚡ ERP System</h2>
+      <p>Finance</p>
+    </div>
+    <nav class="sidebar-menu">
+      <div class="menu-section">Main</div>
+      <button class="menu-item active" onclick="showSection('dashboard', this)"><span class="icon">📊</span> Dashboard</button>
+      <div class="menu-section">Finance</div>
+      <button class="menu-item" onclick="showSection('expenses', this)"><span class="icon">🧾</span> Expenses</button>
+      <button class="menu-item" onclick="showSection('budgets', this)"><span class="icon">📈</span> Budgets</button>
+      <button class="menu-item" onclick="showSection('gl', this)"><span class="icon">📒</span> General Ledger</button>
+      <div class="menu-section">Procurement</div>
+      <button class="menu-item" onclick="window.location.href='/procurement.html'"><span class="icon">📋</span> Procurement</button>
+      <div class="menu-section">Operations</div>
+      <button class="menu-item" onclick="window.location.href='/inventory.html'"><span class="icon">📦</span> Inventory</button>
+      <button class="menu-item" onclick="window.location.href='/asset.html'"><span class="icon">🏷️</span> Assets</button>
+    </nav>
+    <div class="sidebar-user">
+      <div class="name" id="sidebarName">Finance</div>
+      <div class="role">Finance Manager</div>
+      <button class="logout" onclick="logout()">← Logout</button>
+    </div>
+  </aside>
+
+  <div class="main-content">
+    <div class="topbar">
+      <h1 id="pageTitle">Dashboard</h1>
+      <span class="badge" style="background:#16a34a">Finance</span>
+    </div>
+    <div class="page-content">
+
+      <!-- Dashboard -->
+      <div id="sec-dashboard" class="section active">
+        <div class="stats-grid" id="statsGrid"><div class="loading">Loading...</div></div>
+        <div class="charts-grid" id="chartsGrid" style="display:none">
+          <div class="chart-card">
+            <h4>🧾 Expense by Category</h4>
+            <div class="chart-wrap"><canvas id="expCatChart"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <h4>✅ Expense Status</h4>
+            <div class="chart-wrap"><canvas id="expStatusChart"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <h4>📈 Budget vs Spent by Department</h4>
+            <div class="chart-wrap"><canvas id="budgetChart"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <h4>📊 Budget Usage %</h4>
+            <div class="progress-wrap" id="budgetProgress"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Expenses -->
+      <div id="sec-expenses" class="section">
+        <div class="card">
+          <div class="card-header">
+            <h3>🧾 Expenses</h3>
+            <button class="btn btn-primary btn-sm" onclick="openModal('expenseModal')">+ Add Expense</button>
+          </div>
+          <div class="card-body">
+            <table>
+              <thead><tr><th>ID</th><th>Title</th><th>Amount</th><th>Category</th><th>Dept</th><th>Date</th><th>Status</th><th>Action</th></tr></thead>
+              <tbody id="expenseTable"><tr><td colspan="8" class="loading">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Budgets -->
+      <div id="sec-budgets" class="section">
+        <div class="card">
+          <div class="card-header">
+            <h3>📈 Budgets</h3>
+            <button class="btn btn-primary btn-sm" onclick="openModal('budgetModal')">+ Add Budget</button>
+          </div>
+          <div class="card-body">
+            <table>
+              <thead><tr><th>ID</th><th>Department</th><th>Category</th><th>Month</th><th>Budget</th><th>Spent</th><th>Remaining</th></tr></thead>
+              <tbody id="budgetTable"><tr><td colspan="7" class="loading">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- GL -->
+      <div id="sec-gl" class="section">
+        <div class="card">
+          <div class="card-header">
+            <h3>📒 General Ledger</h3>
+            <button class="btn btn-primary btn-sm" onclick="openModal('glModal')">+ Add Entry</button>
+          </div>
+          <div class="card-body">
+            <table>
+              <thead><tr><th>ID</th><th>Date</th><th>Description</th><th>Debit</th><th>Credit</th><th>Balance</th><th>Type</th></tr></thead>
+              <tbody id="glTable"><tr><td colspan="7" class="loading">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Add Expense Modal -->
+<div class="modal-overlay" id="expenseModal">
+  <div class="modal">
+    <h3>Add Expense</h3>
+    <div class="alert alert-error" id="expError"></div>
+    <div class="form-group"><label>Title</label><input type="text" id="expTitle"/></div>
+    <div class="form-group"><label>Amount</label><input type="number" id="expAmount"/></div>
+    <div class="form-group"><label>Category</label>
+      <select id="expCategory">
+        <option value="travel">Travel</option>
+        <option value="office">Office</option>
+        <option value="software">Software</option>
+        <option value="utilities">Utilities</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Department</label><input type="text" id="expDept"/></div>
+    <div class="form-group"><label>Date</label><input type="date" id="expDate"/></div>
+    <div class="form-group"><label>Description</label><input type="text" id="expDesc"/></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="submitExpense()">Submit</button>
+      <button class="btn" style="background:#e2e8f0" onclick="closeModal('expenseModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Budget Modal -->
+<div class="modal-overlay" id="budgetModal">
+  <div class="modal">
+    <h3>Add Budget</h3>
+    <div class="alert alert-error" id="budError"></div>
+    <div class="form-group"><label>Department</label><input type="text" id="budDept"/></div>
+    <div class="form-group"><label>Category</label><input type="text" id="budCat"/></div>
+    <div class="form-group"><label>Amount</label><input type="number" id="budAmount"/></div>
+    <div class="form-group"><label>Month (YYYY-MM)</label><input type="text" id="budMonth" placeholder="2024-06"/></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="addBudget()">Save</button>
+      <button class="btn" style="background:#e2e8f0" onclick="closeModal('budgetModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add GL Modal -->
+<div class="modal-overlay" id="glModal">
+  <div class="modal">
+    <h3>Add GL Entry</h3>
+    <div class="alert alert-error" id="glError"></div>
+    <div class="form-group"><label>Date</label><input type="date" id="glDate"/></div>
+    <div class="form-group"><label>Description</label><input type="text" id="glDesc"/></div>
+    <div class="form-group"><label>Debit</label><input type="number" id="glDebit" placeholder="0"/></div>
+    <div class="form-group"><label>Credit</label><input type="number" id="glCredit" placeholder="0"/></div>
+    <div class="form-group"><label>Account Type</label>
+      <select id="glType">
+        <option value="asset">Asset</option>
+        <option value="liability">Liability</option>
+        <option value="income">Income</option>
+        <option value="expense">Expense</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Reference</label><input type="text" id="glRef" placeholder="Optional"/></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="addGL()">Save</button>
+      <button class="btn" style="background:#e2e8f0" onclick="closeModal('glModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/api.js"></script>
+<script>
+  requireAuth();
+  if (getRole() !== "finance" && getRole() !== "admin") redirectByRole(getRole());
+  document.getElementById("sidebarName").textContent = getUsername();
+
+  const titles = { dashboard:"Dashboard", expenses:"Expenses", budgets:"Budgets", gl:"General Ledger" };
+  let expCatInst, expStatusInst, budgetInst;
+
+  function showSection(name, el) {
+    document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
+    document.querySelectorAll(".menu-item").forEach(m => m.classList.remove("active"));
+    document.getElementById("sec-" + name).classList.add("active");
+    el.classList.add("active");
+    document.getElementById("pageTitle").textContent = titles[name];
+    loadSection(name);
+  }
+
+  function loadSection(name) {
+    if      (name === "dashboard") loadDashboard();
+    else if (name === "expenses")  loadExpenses();
+    else if (name === "budgets")   loadBudgets();
+    else if (name === "gl")        loadGL();
+  }
+
+  function openModal(id)  { document.getElementById(id).classList.add("open"); }
+  function closeModal(id) { document.getElementById(id).classList.remove("open"); }
+  function showErr(id, msg) { const e = document.getElementById(id); e.textContent = msg; e.style.display = "block"; }
+  function destroyChart(i) { if (i) i.destroy(); }
+
+  async function loadDashboard() {
+    const [expenses, budgets, gl] = await Promise.all([
+      api("GET", "/finance/expense"),
+      api("GET", "/finance/budget"),
+      api("GET", "/finance/gl")
+    ]);
+
+    const totalBudget    = budgets.reduce((s,b) => s+b.amount, 0);
+    const totalSpent     = budgets.reduce((s,b) => s+b.spent, 0);
+    const totalExpenses  = expenses.filter(e => e.status==="approved").reduce((s,e) => s+e.amount, 0);
+    const pendingCount   = expenses.filter(e => e.status==="pending").length;
+    const lastGL         = gl.length ? gl[gl.length-1] : null;
+
+    document.getElementById("statsGrid").innerHTML = `
+      <div class="stat-card red"><div class="label">Total Expenses</div><div class="value">${totalExpenses.toFixed(2)}</div></div>
+      <div class="stat-card yellow"><div class="label">Pending Expenses</div><div class="value">${pendingCount}</div></div>
+      <div class="stat-card green"><div class="label">Total Budget</div><div class="value">${totalBudget.toFixed(2)}</div></div>
+      <div class="stat-card red"><div class="label">Total Spent</div><div class="value">${totalSpent.toFixed(2)}</div></div>
+      <div class="stat-card green"><div class="label">Remaining</div><div class="value">${(totalBudget-totalSpent).toFixed(2)}</div></div>
+      <div class="stat-card"><div class="label">GL Entries</div><div class="value">${gl.length}</div></div>
+      <div class="stat-card"><div class="label">Last Balance</div><div class="value">${lastGL ? lastGL.balance.toFixed(2) : "0.00"}</div></div>
+    `;
+
+    document.getElementById("chartsGrid").style.display = "grid";
+
+    // 1. Expense by category donut
+    const cats = ["travel","office","software","utilities","other"];
+    const catAmts = cats.map(c => expenses.filter(e=>e.category===c&&e.status==="approved").reduce((s,e)=>s+e.amount,0));
+    destroyChart(expCatInst);
+    expCatInst = new Chart(document.getElementById("expCatChart"), {
+      type: "doughnut",
+      data: {
+        labels: ["Travel","Office","Software","Utilities","Other"],
+        datasets: [{ data: catAmts, backgroundColor: ["#6366f1","#f59e0b","#22c55e","#06b6d4","#f43f5e"], borderWidth: 0, hoverOffset: 8 }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: "bottom", labels: { padding: 12, font: { size: 11 } } } },
+        animation: { animateScale: true, duration: 900 }
+      }
+    });
+
+    // 2. Expense status donut
+    const approved = expenses.filter(e=>e.status==="approved").length;
+    const pending  = expenses.filter(e=>e.status==="pending").length;
+    const rejected = expenses.filter(e=>e.status==="rejected").length;
+    destroyChart(expStatusInst);
+    expStatusInst = new Chart(document.getElementById("expStatusChart"), {
+      type: "doughnut",
+      data: {
+        labels: ["Approved","Pending","Rejected"],
+        datasets: [{ data: [approved, pending, rejected], backgroundColor: ["#22c55e","#f59e0b","#ef4444"], borderWidth: 0, hoverOffset: 8 }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: "bottom", labels: { padding: 12, font: { size: 11 } } } },
+        animation: { animateScale: true, duration: 800 }
+      }
+    });
+
+    // 3. Budget vs Spent bar
+    const depts     = [...new Set(budgets.map(b=>b.department))];
+    const deptBudget = depts.map(d => budgets.filter(b=>b.department===d).reduce((s,b)=>s+b.amount,0));
+    const deptSpent  = depts.map(d => budgets.filter(b=>b.department===d).reduce((s,b)=>s+b.spent,0));
+    destroyChart(budgetInst);
+    budgetInst = new Chart(document.getElementById("budgetChart"), {
+      type: "bar",
+      data: {
+        labels: depts.length ? depts : ["No Data"],
+        datasets: [
+          { label: "Budget", data: deptBudget, backgroundColor: "rgba(37,99,235,0.8)",  borderRadius: 6 },
+          { label: "Spent",  data: deptSpent,  backgroundColor: "rgba(239,68,68,0.8)",  borderRadius: 6 }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: "bottom" } },
+        scales: { x: { grid: { display: false } }, y: { grid: { color: "#f1f5f9" } } },
+        animation: { duration: 800 }
+      }
+    });
+
+    // 4. Budget usage progress bars
+    const progEl = document.getElementById("budgetProgress");
+    if (!budgets.length) { progEl.innerHTML = `<p style="color:#64748b;font-size:13px">No budget data</p>`; return; }
+    const colors = ["#6366f1","#22c55e","#f59e0b","#06b6d4","#f43f5e"];
+    progEl.innerHTML = depts.map((dept, i) => {
+      const budget = deptBudget[i];
+      const spent  = deptSpent[i];
+      const pct    = budget > 0 ? Math.min((spent/budget)*100, 100).toFixed(1) : 0;
+      const color  = pct > 80 ? "#ef4444" : pct > 50 ? "#f59e0b" : colors[i % colors.length];
+      return `
+        <div class="progress-item">
+          <div class="progress-label"><span>${dept}</span><span>${pct}% (${spent.toFixed(0)}/${budget.toFixed(0)})</span></div>
+          <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${color}"></div></div>
+        </div>`;
+    }).join("");
+  }
+
+  async function loadExpenses() {
+    const list = await api("GET", "/finance/expense");
+    const tb = document.getElementById("expenseTable");
+    if (!list.length) { tb.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#64748b">No expenses</td></tr>`; return; }
+    tb.innerHTML = list.map(e => `
+      <tr>
+        <td>${e.id}</td><td>${e.title}</td><td>${e.amount}</td>
+        <td>${e.category}</td><td>${e.department}</td><td>${e.date}</td>
+        <td><span class="status ${e.status}">${e.status}</span></td>
+        <td>${e.status==="pending"?`
+          <button class="btn btn-success btn-sm" onclick="updateExpense(${e.id},'approved')">✓</button>
+          <button class="btn btn-danger btn-sm"  onclick="updateExpense(${e.id},'rejected')">✗</button>`:"-"}
+        </td>
+      </tr>`).join("");
+  }
+
+  async function submitExpense() {
+    try {
+      await api("POST", "/finance/expense", {
+        title:       document.getElementById("expTitle").value,
+        amount:      parseFloat(document.getElementById("expAmount").value),
+        category:    document.getElementById("expCategory").value,
+        department:  document.getElementById("expDept").value,
+        date:        document.getElementById("expDate").value,
+        description: document.getElementById("expDesc").value||null
+      });
+      closeModal("expenseModal"); loadExpenses();
+    } catch(e) { showErr("expError", e.message); }
+  }
+
+  async function updateExpense(id, status) {
+    await api("PUT", `/finance/expense/${id}`, { status, approved_by: 1 });
+    loadExpenses();
+  }
+
+  async function loadBudgets() {
+    const list = await api("GET", "/finance/budget");
+    const tb = document.getElementById("budgetTable");
+    if (!list.length) { tb.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#64748b">No budgets</td></tr>`; return; }
+    tb.innerHTML = list.map(b => `
+      <tr>
+        <td>${b.id}</td><td>${b.department}</td><td>${b.category}</td>
+        <td>${b.month}</td><td>${b.amount}</td><td>${b.spent}</td>
+        <td><strong>${(b.amount-b.spent).toFixed(2)}</strong></td>
+      </tr>`).join("");
+  }
+
+  async function addBudget() {
+    try {
+      await api("POST", "/finance/budget", {
+        department: document.getElementById("budDept").value,
+        category:   document.getElementById("budCat").value,
+        amount:     parseFloat(document.getElementById("budAmount").value),
+        month:      document.getElementById("budMonth").value
+      });
+      closeModal("budgetModal"); loadBudgets();
+    } catch(e) { showErr("budError", e.message); }
+  }
+
+  async function loadGL() {
+    const list = await api("GET", "/finance/gl");
+    const tb = document.getElementById("glTable");
+    if (!list.length) { tb.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#64748b">No entries</td></tr>`; return; }
+    tb.innerHTML = list.map(g => `
+      <tr>
+        <td>${g.id}</td><td>${g.date}</td><td>${g.description}</td>
+        <td>${g.debit}</td><td>${g.credit}</td>
+        <td><strong>${g.balance}</strong></td><td>${g.account_type}</td>
+      </tr>`).join("");
+  }
+
+  async function addGL() {
+    try {
+      await api("POST", "/finance/gl", {
+        date:         document.getElementById("glDate").value,
+        description:  document.getElementById("glDesc").value,
+        debit:        parseFloat(document.getElementById("glDebit").value||0),
+        credit:       parseFloat(document.getElementById("glCredit").value||0),
+        account_type: document.getElementById("glType").value,
+        reference:    document.getElementById("glRef").value||null
+      });
+      closeModal("glModal"); loadGL();
+    } catch(e) { showErr("glError", e.message); }
+  }
+
+  document.addEventListener("click", e => {
+    if (e.target.classList.contains("modal-overlay")) e.target.classList.remove("open");
+  });
+
+  loadDashboard();
+</script>
+</body>
+</html>

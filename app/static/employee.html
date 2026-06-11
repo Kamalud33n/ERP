@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ERP — Employee Dashboard</title>
+  <link rel="stylesheet" href="/static/css/style.css"/>
+</head>
+<body>
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <h2>⚡ ERP System</h2>
+      <p>Employee Portal</p>
+    </div>
+    <nav class="sidebar-menu">
+      <div class="menu-section">Main</div>
+      <button class="menu-item active" onclick="showSection('dashboard', this)">
+        <span class="icon">📊</span> Dashboard
+      </button>
+      <div class="menu-section">My Info</div>
+      <button class="menu-item" onclick="showSection('profile', this)">
+        <span class="icon">👤</span> My Profile
+      </button>
+      <button class="menu-item" onclick="showSection('leaves', this)">
+        <span class="icon">📅</span> My Leaves
+      </button>
+      <button class="menu-item" onclick="showSection('attendance', this)">
+        <span class="icon">✅</span> My Attendance
+      </button>
+      <button class="menu-item" onclick="showSection('payslips', this)">
+        <span class="icon">💰</span> My Payslips
+      </button>
+      <button class="menu-item" onclick="showSection('expenses', this)">
+        <span class="icon">🧾</span> My Expenses
+      </button>
+      <div class="menu-section">More</div>
+      <button class="menu-item" onclick="window.location.href='/procurement.html'"><span class="icon">📋</span> Purchase Request</button>
+      <button class="menu-item" onclick="window.location.href='/inventory.html'"><span class="icon">📦</span> Inventory</button>
+      <button class="menu-item" onclick="window.location.href='/asset.html'"><span class="icon">🏷️</span> Assets</button>
+    </nav>
+    <div class="sidebar-user">
+      <div class="name" id="sidebarName">Employee</div>
+      <div class="role">Employee</div>
+      <button class="logout" onclick="logout()">← Logout</button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main-content">
+    <div class="topbar">
+      <h1 id="pageTitle">Dashboard</h1>
+      <span class="badge">Employee</span>
+    </div>
+    <div class="page-content">
+
+      <!-- Dashboard -->
+      <div id="sec-dashboard" class="section active">
+        <div class="stats-grid" id="statsGrid">
+          <div class="loading">Loading dashboard...</div>
+        </div>
+      </div>
+
+      <!-- Profile -->
+      <div id="sec-profile" class="section">
+        <div class="card">
+          <div class="card-header"><h3>👤 My Profile</h3></div>
+          <div class="card-body" id="profileBody">
+            <div class="loading">Loading...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Leaves -->
+      <div id="sec-leaves" class="section">
+        <div class="card">
+          <div class="card-header">
+            <h3>📅 My Leave Requests</h3>
+            <button class="btn btn-primary btn-sm" onclick="openApplyLeave()">+ Apply Leave</button>
+          </div>
+          <div class="card-body">
+            <table>
+              <thead>
+                <tr><th>ID</th><th>Type</th><th>Start</th><th>End</th><th>Days</th><th>Reason</th><th>Status</th></tr>
+              </thead>
+              <tbody id="leaveTable"><tr><td colspan="7" class="loading">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Attendance -->
+      <div id="sec-attendance" class="section">
+        <div class="card">
+          <div class="card-header"><h3>✅ My Attendance</h3></div>
+          <div class="card-body">
+            <table>
+              <thead>
+                <tr><th>ID</th><th>Date</th><th>Check In</th><th>Check Out</th><th>Status</th></tr>
+              </thead>
+              <tbody id="attendanceTable"><tr><td colspan="5" class="loading">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Payslips -->
+      <div id="sec-payslips" class="section">
+        <div class="card">
+          <div class="card-header"><h3>💰 My Payslips</h3></div>
+          <div class="card-body">
+            <table>
+              <thead>
+                <tr><th>ID</th><th>Month</th><th>Basic</th><th>Allowances</th><th>Deductions</th><th>Net Salary</th><th>Status</th></tr>
+              </thead>
+              <tbody id="payslipTable"><tr><td colspan="7" class="loading">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Expenses -->
+      <div id="sec-expenses" class="section">
+        <div class="card">
+          <div class="card-header">
+            <h3>🧾 My Expenses</h3>
+            <button class="btn btn-primary btn-sm" onclick="openAddExpense()">+ Submit Expense</button>
+          </div>
+          <div class="card-body">
+            <table>
+              <thead>
+                <tr><th>ID</th><th>Title</th><th>Amount</th><th>Category</th><th>Date</th><th>Status</th></tr>
+              </thead>
+              <tbody id="expenseTable"><tr><td colspan="6" class="loading">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Apply Leave Modal -->
+<div class="modal-overlay" id="leaveModal">
+  <div class="modal">
+    <h3>Apply for Leave</h3>
+    <div class="alert alert-error" id="leaveError"></div>
+    <div class="form-group">
+      <label>Leave Type</label>
+      <select id="leaveType">
+        <option value="annual">Annual</option>
+        <option value="sick">Sick</option>
+        <option value="unpaid">Unpaid</option>
+        <option value="emergency">Emergency</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Start Date</label><input type="date" id="leaveStart"/></div>
+    <div class="form-group"><label>End Date</label><input type="date" id="leaveEnd"/></div>
+    <div class="form-group"><label>Number of Days</label><input type="number" id="leaveDays" placeholder="1"/></div>
+    <div class="form-group"><label>Reason</label><input type="text" id="leaveReason" placeholder="Optional"/></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="applyLeave()">Submit</button>
+      <button class="btn" style="background:#e2e8f0" onclick="closeModal('leaveModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Submit Expense Modal -->
+<div class="modal-overlay" id="expenseModal">
+  <div class="modal">
+    <h3>Submit Expense</h3>
+    <div class="alert alert-error" id="expError"></div>
+    <div class="form-group"><label>Title</label><input type="text" id="expTitle" placeholder="Office supplies"/></div>
+    <div class="form-group"><label>Amount</label><input type="number" id="expAmount" placeholder="500"/></div>
+    <div class="form-group">
+      <label>Category</label>
+      <select id="expCategory">
+        <option value="travel">Travel</option>
+        <option value="office">Office</option>
+        <option value="software">Software</option>
+        <option value="utilities">Utilities</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Department</label><input type="text" id="expDept" placeholder="Your department"/></div>
+    <div class="form-group"><label>Date</label><input type="date" id="expDate"/></div>
+    <div class="form-group"><label>Description</label><input type="text" id="expDesc" placeholder="Optional"/></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="submitExpense()">Submit</button>
+      <button class="btn" style="background:#e2e8f0" onclick="closeModal('expenseModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/api.js"></script>
+<script>
+  requireAuth();
+  if (getRole() !== "employee") redirectByRole(getRole());
+  document.getElementById("sidebarName").textContent = getUsername();
+
+  const titles = {
+    dashboard: "Dashboard", profile: "My Profile", leaves: "My Leaves",
+    attendance: "My Attendance", payslips: "My Payslips", expenses: "My Expenses"
+  };
+
+  function showSection(name, el) {
+    document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
+    document.querySelectorAll(".menu-item").forEach(m => m.classList.remove("active"));
+    document.getElementById("sec-" + name).classList.add("active");
+    el.classList.add("active");
+    document.getElementById("pageTitle").textContent = titles[name];
+    loadSection(name);
+  }
+
+  function loadSection(name) {
+    if (name === "dashboard")  loadDashboard();
+    else if (name === "profile")    loadProfile();
+    else if (name === "leaves")     loadLeaves();
+    else if (name === "attendance") loadAttendance();
+    else if (name === "payslips")   loadPayslips();
+    else if (name === "expenses")   loadExpenses();
+  }
+
+  function openApplyLeave()  { document.getElementById("leaveModal").classList.add("open"); }
+  function openAddExpense()  { document.getElementById("expenseModal").classList.add("open"); }
+  function closeModal(id)    { document.getElementById(id).classList.remove("open"); }
+
+  async function loadDashboard() {
+    const d = await api("GET", "/dashboard/");
+    if (d.message) {
+      document.getElementById("statsGrid").innerHTML = `<div class="loading">${d.message}</div>`;
+      return;
+    }
+    document.getElementById("statsGrid").innerHTML = `
+      <div class="stat-card"><div class="label">Name</div><div class="value" style="font-size:18px">${d.name}</div><div class="sub">${d.designation}</div></div>
+      <div class="stat-card"><div class="label">Department</div><div class="value" style="font-size:18px">${d.department}</div></div>
+      <div class="stat-card yellow"><div class="label">Pending Leaves</div><div class="value">${d.pending_leaves}</div></div>
+      <div class="stat-card green"><div class="label">Approved Leaves</div><div class="value">${d.approved_leaves}</div></div>
+      <div class="stat-card green"><div class="label">Present Days</div><div class="value">${d.present_days}</div></div>
+      <div class="stat-card"><div class="label">Last Net Salary</div><div class="value">${d.last_net_salary}</div><div class="sub">Most recent payslip</div></div>
+    `;
+  }
+
+  async function loadProfile() {
+    const e = await api("GET", "/employee/me");
+    document.getElementById("profileBody").innerHTML = `
+      <table>
+        <tr><th style="width:200px">First Name</th><td>${e.first_name}</td></tr>
+        <tr><th>Last Name</th><td>${e.last_name}</td></tr>
+        <tr><th>Phone</th><td>${e.phone || "-"}</td></tr>
+        <tr><th>Department</th><td>${e.department}</td></tr>
+        <tr><th>Designation</th><td>${e.designation}</td></tr>
+        <tr><th>Join Date</th><td>${e.join_date || "-"}</td></tr>
+      </table>
+    `;
+  }
+
+  async function loadLeaves() {
+    const list = await api("GET", "/hr/leave/me");
+    const tb = document.getElementById("leaveTable");
+    if (!list.length) { tb.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#64748b">No leave requests</td></tr>`; return; }
+    tb.innerHTML = list.map(l => `
+      <tr>
+        <td>${l.id}</td><td>${l.leave_type}</td>
+        <td>${l.start_date}</td><td>${l.end_date}</td><td>${l.days}</td>
+        <td>${l.reason || "-"}</td>
+        <td><span class="status ${l.status}">${l.status}</span></td>
+      </tr>`).join("");
+  }
+
+  async function loadAttendance() {
+    const list = await api("GET", "/hr/attendance/me");
+    const tb = document.getElementById("attendanceTable");
+    if (!list.length) { tb.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#64748b">No attendance records</td></tr>`; return; }
+    tb.innerHTML = list.map(a => `
+      <tr>
+        <td>${a.id}</td><td>${a.date}</td>
+        <td>${a.check_in ? a.check_in.slice(11,16) : "-"}</td>
+        <td>${a.check_out ? a.check_out.slice(11,16) : "-"}</td>
+        <td><span class="status ${a.status}">${a.status}</span></td>
+      </tr>`).join("");
+  }
+
+  async function loadPayslips() {
+    const list = await api("GET", "/hr/payroll/me");
+    const tb = document.getElementById("payslipTable");
+    if (!list.length) { tb.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#64748b">No payslips yet</td></tr>`; return; }
+    tb.innerHTML = list.map(p => `
+      <tr>
+        <td>${p.id}</td><td>${p.month}</td>
+        <td>${p.basic_salary}</td><td>${p.allowances}</td><td>${p.deductions}</td>
+        <td><strong>${p.net_salary}</strong></td>
+        <td><span class="status ${p.status}">${p.status}</span></td>
+      </tr>`).join("");
+  }
+
+  async function loadExpenses() {
+    const list = await api("GET", "/finance/expense");
+    const tb = document.getElementById("expenseTable");
+    const myExpenses = list.filter(e => true);
+    if (!myExpenses.length) { tb.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#64748b">No expenses</td></tr>`; return; }
+    tb.innerHTML = myExpenses.map(e => `
+      <tr>
+        <td>${e.id}</td><td>${e.title}</td><td>${e.amount}</td>
+        <td>${e.category}</td><td>${e.date}</td>
+        <td><span class="status ${e.status}">${e.status}</span></td>
+      </tr>`).join("");
+  }
+
+  async function applyLeave() {
+    const errEl = document.getElementById("leaveError");
+    errEl.style.display = "none";
+    try {
+      await api("POST", "/hr/leave", {
+        leave_type: document.getElementById("leaveType").value,
+        start_date: document.getElementById("leaveStart").value,
+        end_date:   document.getElementById("leaveEnd").value,
+        days:       parseInt(document.getElementById("leaveDays").value),
+        reason:     document.getElementById("leaveReason").value || null
+      });
+      closeModal("leaveModal");
+      loadLeaves();
+    } catch(e) {
+      errEl.textContent = e.message;
+      errEl.style.display = "block";
+    }
+  }
+
+  async function submitExpense() {
+    const errEl = document.getElementById("expError");
+    errEl.style.display = "none";
+    try {
+      await api("POST", "/finance/expense", {
+        title:       document.getElementById("expTitle").value,
+        amount:      parseFloat(document.getElementById("expAmount").value),
+        category:    document.getElementById("expCategory").value,
+        department:  document.getElementById("expDept").value,
+        date:        document.getElementById("expDate").value,
+        description: document.getElementById("expDesc").value || null
+      });
+      closeModal("expenseModal");
+      loadExpenses();
+    } catch(e) {
+      errEl.textContent = e.message;
+      errEl.style.display = "block";
+    }
+  }
+
+  loadDashboard();
+</script>
+</body>
+</html>
