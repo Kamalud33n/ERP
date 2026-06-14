@@ -48,6 +48,11 @@
       <button class="menu-item" onclick="showSection('expenses', this)"><span class="icon">🧾</span> Expenses</button>
       <button class="menu-item" onclick="showSection('budgets', this)"><span class="icon">📈</span> Budgets</button>
       <button class="menu-item" onclick="showSection('gl', this)"><span class="icon">📒</span> General Ledger</button>
+      <button class="menu-item" onclick="showSection('journal', this)"><span class="icon">📝</span> Journal Entries</button>
+      <div class="menu-section">Reports</div>
+      <button class="menu-item" onclick="showSection('pl', this)"><span class="icon">💹</span> P&L Report</button>
+      <button class="menu-item" onclick="showSection('cashflow', this)"><span class="icon">💸</span> Cash Flow</button>
+      <button class="menu-item" onclick="showSection('analysis', this)"><span class="icon">🔍</span> Expense Analysis</button>
       <div class="menu-section">Procurement</div>
       <button class="menu-item" onclick="window.location.href='/procurement.html'"><span class="icon">📋</span> Procurement</button>
       <div class="menu-section">Operations</div>
@@ -139,6 +144,103 @@
         </div>
       </div>
 
+      <!-- Journal Entries -->
+      <div id="sec-journal" class="section">
+        <div class="card">
+          <div class="card-header">
+            <h3>📝 Journal Entries</h3>
+            <button class="btn btn-primary btn-sm" onclick="openModal('addJournalModal')">+ New Entry</button>
+          </div>
+          <div class="card-body">
+            <table>
+              <thead><tr><th>Entry No</th><th>Date</th><th>Description</th><th>Reference</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody id="journalTable"><tr><td colspan="6" class="loading">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- P&L Report -->
+      <div id="sec-pl" class="section">
+        <div class="card">
+          <div class="card-header">
+            <h3>💹 Profit & Loss Report</h3>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input type="month" id="plMonth" style="padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px"/>
+              <button class="btn btn-primary btn-sm" onclick="loadPL()">Generate</button>
+            </div>
+          </div>
+          <div class="card-body" id="plBody">
+            <div class="loading">Click Generate to load report</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cash Flow -->
+      <div id="sec-cashflow" class="section">
+        <div class="card">
+          <div class="card-header">
+            <h3>💸 Cash Flow Report</h3>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input type="month" id="cfMonth" style="padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px"/>
+              <button class="btn btn-primary btn-sm" onclick="loadCashFlow()">Generate</button>
+            </div>
+          </div>
+          <div class="card-body" id="cfBody">
+            <div class="loading">Click Generate to load report</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Expense Analysis -->
+      <div id="sec-analysis" class="section">
+        <div class="card">
+          <div class="card-header">
+            <h3>🔍 Expense Analysis</h3>
+            <button class="btn btn-primary btn-sm" onclick="loadAnalysis()">Refresh</button>
+          </div>
+          <div class="card-body" id="analysisBody">
+            <div class="loading">Loading...</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Add Journal Modal -->
+<div class="modal-overlay" id="addJournalModal">
+  <div class="modal" style="max-width:600px">
+    <h3>New Journal Entry</h3>
+    <div class="alert alert-error" id="journalError"></div>
+    <div class="form-group"><label>Date</label><input type="date" id="jDate"/></div>
+    <div class="form-group"><label>Description</label><input type="text" id="jDesc" placeholder="Journal entry description"/></div>
+    <div class="form-group"><label>Reference</label><input type="text" id="jRef" placeholder="INV-001 (optional)"/></div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:13px;font-weight:600">Lines (Debit must = Credit)</label>
+      <div id="journalLines">
+        <div class="journal-line" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:8px;margin-top:8px">
+          <select class="line-type" style="padding:8px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:13px">
+            <option value="asset">Asset</option>
+            <option value="liability">Liability</option>
+            <option value="income">Income</option>
+            <option value="expense">Expense</option>
+          </select>
+          <input type="text" class="line-desc" placeholder="Description" style="padding:8px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:13px"/>
+          <input type="number" class="line-debit" placeholder="Debit" style="padding:8px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:13px"/>
+          <input type="number" class="line-credit" placeholder="Credit" style="padding:8px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:13px"/>
+          <button onclick="removeLine(this)" style="background:#fee2e2;border:none;border-radius:6px;padding:8px;cursor:pointer;color:#dc2626">✕</button>
+        </div>
+      </div>
+      <button class="btn btn-sm" style="background:#e2e8f0;margin-top:8px" onclick="addLine()">+ Add Line</button>
+    </div>
+    <div style="background:#f8fafc;padding:10px;border-radius:8px;font-size:13px;margin-bottom:16px">
+      Total Debit: <strong id="totalDebit">0</strong> | Total Credit: <strong id="totalCredit">0</strong>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="submitJournal()">Post Entry</button>
+      <button class="btn" style="background:#e2e8f0" onclick="closeModal('addJournalModal')">Cancel</button>
     </div>
   </div>
 </div>
@@ -216,7 +318,7 @@
   if (getRole() !== "finance" && getRole() !== "admin") redirectByRole(getRole());
   document.getElementById("sidebarName").textContent = getUsername();
 
-  const titles = { dashboard:"Dashboard", expenses:"Expenses", budgets:"Budgets", gl:"General Ledger" };
+  const titles = { dashboard:"Dashboard", expenses:"Expenses", budgets:"Budgets", gl:"General Ledger", journal:"Journal Entries", pl:"P&L Report", cashflow:"Cash Flow", analysis:"Expense Analysis" };
   let expCatInst, expStatusInst, budgetInst;
 
   function showSection(name, el) {
@@ -233,6 +335,10 @@
     else if (name === "expenses")  loadExpenses();
     else if (name === "budgets")   loadBudgets();
     else if (name === "gl")        loadGL();
+    else if (name === "journal")   loadJournals();
+    else if (name === "pl")        loadPL();
+    else if (name === "cashflow")  loadCashFlow();
+    else if (name === "analysis")  loadAnalysis();
   }
 
   function openModal(id)  { document.getElementById(id).classList.add("open"); }
@@ -422,6 +528,169 @@
       });
       closeModal("glModal"); loadGL();
     } catch(e) { showErr("glError", e.message); }
+  }
+
+  // ── Journal Entries ──────────────────────────────────
+  async function loadJournals() {
+    const list = await api("GET", "/finance/journal");
+    const tb = document.getElementById("journalTable");
+    if (!list.length) { tb.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#64748b">No journal entries</td></tr>`; return; }
+    const statusColors = { posted:"approved", draft:"pending", reversed:"rejected" };
+    tb.innerHTML = list.map(j => `
+      <tr>
+        <td><strong>${j.entry_number}</strong></td>
+        <td>${j.date}</td>
+        <td>${j.description}</td>
+        <td>${j.reference||"-"}</td>
+        <td><span class="status ${statusColors[j.status]||'pending'}">${j.status}</span></td>
+        <td>
+          <button class="btn btn-sm" style="background:#e2e8f0" onclick="viewJournal(${j.id})">👁 View</button>
+          ${j.status === "posted" ? `<button class="btn btn-danger btn-sm" onclick="reverseJournal(${j.id})">↩ Reverse</button>` : ""}
+        </td>
+      </tr>`).join("");
+  }
+
+  async function viewJournal(id) {
+    const j = await api("GET", `/finance/journal/${id}`);
+    let lines = j.lines.map(l => `
+      <tr>
+        <td>${l.account_type}</td>
+        <td>${l.description||"-"}</td>
+        <td>${l.debit||"-"}</td>
+        <td>${l.credit||"-"}</td>
+      </tr>`).join("");
+    alert(`Journal Entry: ${j.entry_number}\nDate: ${j.date}\nDescription: ${j.description}\n\nLines:\nType | Desc | Debit | Credit\n${j.lines.map(l=>`${l.account_type} | ${l.description||"-"} | ${l.debit} | ${l.credit}`).join("\n")}`);
+  }
+
+  async function reverseJournal(id) {
+    if (!confirm("Reverse this journal entry?")) return;
+    await api("POST", `/finance/journal/${id}/reverse`);
+    loadJournals();
+  }
+
+  function addLine() {
+    const div = document.createElement("div");
+    div.className = "journal-line";
+    div.style = "display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:8px;margin-top:8px";
+    div.innerHTML = `
+      <select class="line-type" style="padding:8px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:13px">
+        <option value="asset">Asset</option>
+        <option value="liability">Liability</option>
+        <option value="income">Income</option>
+        <option value="expense">Expense</option>
+      </select>
+      <input type="text" class="line-desc" placeholder="Description" style="padding:8px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:13px"/>
+      <input type="number" class="line-debit" placeholder="Debit" style="padding:8px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:13px" onchange="updateTotals()"/>
+      <input type="number" class="line-credit" placeholder="Credit" style="padding:8px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:13px" onchange="updateTotals()"/>
+      <button onclick="removeLine(this)" style="background:#fee2e2;border:none;border-radius:6px;padding:8px;cursor:pointer;color:#dc2626">✕</button>
+    `;
+    document.getElementById("journalLines").appendChild(div);
+  }
+
+  function removeLine(btn) {
+    btn.parentElement.remove();
+    updateTotals();
+  }
+
+  function updateTotals() {
+    const debits  = [...document.querySelectorAll(".line-debit")].reduce((s,i)=>s+parseFloat(i.value||0),0);
+    const credits = [...document.querySelectorAll(".line-credit")].reduce((s,i)=>s+parseFloat(i.value||0),0);
+    document.getElementById("totalDebit").textContent  = debits.toFixed(2);
+    document.getElementById("totalCredit").textContent = credits.toFixed(2);
+    document.getElementById("totalDebit").style.color  = debits !== credits ? "#dc2626" : "#16a34a";
+    document.getElementById("totalCredit").style.color = debits !== credits ? "#dc2626" : "#16a34a";
+  }
+
+  async function submitJournal() {
+    const errEl = document.getElementById("journalError");
+    errEl.style.display = "none";
+    const lines = [...document.querySelectorAll(".journal-line")].map(l => ({
+      account_type: l.querySelector(".line-type").value,
+      description:  l.querySelector(".line-desc").value||null,
+      debit:        parseFloat(l.querySelector(".line-debit").value||0),
+      credit:       parseFloat(l.querySelector(".line-credit").value||0)
+    }));
+    try {
+      await api("POST", "/finance/journal", {
+        date:        document.getElementById("jDate").value,
+        description: document.getElementById("jDesc").value,
+        reference:   document.getElementById("jRef").value||null,
+        lines
+      });
+      closeModal("addJournalModal");
+      loadJournals();
+    } catch(e) { showErr("journalError", e.message); }
+  }
+
+  // ── P&L Report ────────────────────────────────────────
+  async function loadPL() {
+    const month = document.getElementById("plMonth").value || null;
+    const url   = month ? `/finance/reports/pl?month=${month}` : "/finance/reports/pl";
+    const d     = await api("GET", url);
+    document.getElementById("plBody").innerHTML = `
+      <div class="stats-grid" style="margin-bottom:20px">
+        <div class="stat-card green"><div class="label">Total Income</div><div class="value">${d.total_income}</div></div>
+        <div class="stat-card red"><div class="label">Total Expenses</div><div class="value">${d.total_expenses}</div></div>
+        <div class="stat-card ${d.is_profitable?'green':'red'}"><div class="label">Net Profit</div><div class="value">${d.net_profit}</div></div>
+        <div class="stat-card"><div class="label">Total Assets</div><div class="value">${d.total_assets}</div></div>
+        <div class="stat-card"><div class="label">Total Liability</div><div class="value">${d.total_liability}</div></div>
+      </div>
+      <div style="padding:16px;background:${d.is_profitable?'#f0fdf4':'#fef2f2'};border-radius:10px;text-align:center">
+        <strong style="font-size:18px;color:${d.is_profitable?'#16a34a':'#dc2626'}">
+          ${d.is_profitable ? '✅ Profitable' : '❌ Loss Making'} — Period: ${d.period}
+        </strong>
+      </div>
+    `;
+  }
+
+  // ── Cash Flow ─────────────────────────────────────────
+  async function loadCashFlow() {
+    const month = document.getElementById("cfMonth").value || null;
+    const url   = month ? `/finance/reports/cashflow?month=${month}` : "/finance/reports/cashflow";
+    const d     = await api("GET", url);
+    const rows  = d.monthly_breakdown.map(m => `
+      <tr>
+        <td>${m.month}</td>
+        <td style="color:#16a34a">${m.cash_in}</td>
+        <td style="color:#dc2626">${m.cash_out}</td>
+        <td style="color:${m.net>=0?'#16a34a':'#dc2626'}"><strong>${m.net}</strong></td>
+      </tr>`).join("");
+    document.getElementById("cfBody").innerHTML = `
+      <div class="stats-grid" style="margin-bottom:20px">
+        <div class="stat-card green"><div class="label">Cash In</div><div class="value">${d.cash_in}</div></div>
+        <div class="stat-card red"><div class="label">Cash Out</div><div class="value">${d.cash_out}</div></div>
+        <div class="stat-card ${d.is_positive?'green':'red'}"><div class="label">Net Flow</div><div class="value">${d.net_flow}</div></div>
+      </div>
+      <table>
+        <thead><tr><th>Month</th><th>Cash In</th><th>Cash Out</th><th>Net</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="4" style="text-align:center;color:#64748b">No data</td></tr>'}</tbody>
+      </table>
+    `;
+  }
+
+  // ── Expense Analysis ──────────────────────────────────
+  async function loadAnalysis() {
+    const d  = await api("GET", "/finance/reports/expense-analysis");
+    const catRows  = d.by_category.map(c  => `<tr><td>${c.category}</td><td><strong>${c.amount}</strong></td></tr>`).join("");
+    const deptRows = d.by_department.map(dp=> `<tr><td>${dp.department}</td><td><strong>${dp.amount}</strong></td></tr>`).join("");
+    const monthRows= d.by_month.map(m     => `<tr><td>${m.month}</td><td><strong>${m.amount}</strong></td></tr>`).join("");
+    document.getElementById("analysisBody").innerHTML = `
+      <div class="stat-card green" style="margin-bottom:20px"><div class="label">Total Approved Expenses</div><div class="value">${d.total_approved_expenses}</div></div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px">
+        <div>
+          <h4 style="margin-bottom:10px;font-size:14px">By Category</h4>
+          <table><thead><tr><th>Category</th><th>Amount</th></tr></thead><tbody>${catRows||'<tr><td colspan="2" style="text-align:center;color:#64748b">No data</td></tr>'}</tbody></table>
+        </div>
+        <div>
+          <h4 style="margin-bottom:10px;font-size:14px">By Department</h4>
+          <table><thead><tr><th>Department</th><th>Amount</th></tr></thead><tbody>${deptRows||'<tr><td colspan="2" style="text-align:center;color:#64748b">No data</td></tr>'}</tbody></table>
+        </div>
+        <div>
+          <h4 style="margin-bottom:10px;font-size:14px">By Month</h4>
+          <table><thead><tr><th>Month</th><th>Amount</th></tr></thead><tbody>${monthRows||'<tr><td colspan="2" style="text-align:center;color:#64748b">No data</td></tr>'}</tbody></table>
+        </div>
+      </div>
+    `;
   }
 
   document.addEventListener("click", e => {

@@ -47,6 +47,10 @@
       <button class="menu-item" onclick="showSection('leaves', this)"><span class="icon">📅</span> Leave Requests</button>
       <button class="menu-item" onclick="showSection('attendance', this)"><span class="icon">✅</span> Attendance</button>
       <button class="menu-item" onclick="showSection('payroll', this)"><span class="icon">💰</span> Payroll</button>
+      <button class="menu-item" onclick="showSection('contracts', this)"><span class="icon">📄</span> Contracts</button>
+      <button class="menu-item" onclick="showSection('performance', this)"><span class="icon">⭐</span> Performance</button>
+      <button class="menu-item" onclick="showSection('documents', this)"><span class="icon">📁</span> Documents</button>
+      <button class="menu-item" onclick="showSection('orgchart', this)"><span class="icon">🏢</span> Org Chart</button>
       <div class="menu-section">Procurement</div>
       <button class="menu-item" onclick="window.location.href='/procurement.html'"><span class="icon">📋</span> Procurement</button>
       <div class="menu-section">Operations</div>
@@ -151,6 +155,130 @@
         </div>
       </div>
 
+      <!-- Contracts -->
+      <div id="sec-contracts" class="section">
+        <div class="card">
+          <div class="card-header">
+            <h3>📄 Contracts</h3>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-warning btn-sm" onclick="loadExpiring()">⚠️ Expiring Soon</button>
+              <button class="btn btn-primary btn-sm" onclick="openModal('addContractModal')">+ Add Contract</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <table>
+              <thead><tr><th>ID</th><th>Emp ID</th><th>Type</th><th>Position</th><th>Dept</th><th>Salary</th><th>Start</th><th>End</th><th>Status</th><th>Action</th></tr></thead>
+              <tbody id="contractTable"><tr><td colspan="10" class="loading">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Performance -->
+      <div id="sec-performance" class="section">
+        <div class="card">
+          <div class="card-header">
+            <h3>⭐ Performance Reviews</h3>
+            <button class="btn btn-primary btn-sm" onclick="openModal('addPerfModal')">+ Add Review</button>
+          </div>
+          <div class="card-body">
+            <table>
+              <thead><tr><th>ID</th><th>Emp ID</th><th>Period</th><th>Rating</th><th>KPI</th><th>Attendance</th><th>Teamwork</th><th>Technical</th><th>Status</th><th>Action</th></tr></thead>
+              <tbody id="perfTable"><tr><td colspan="10" class="loading">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Documents -->
+      <div id="sec-documents" class="section">
+        <div class="card">
+          <div class="card-header">
+            <h3>📁 Employee Documents</h3>
+            <button class="btn btn-primary btn-sm" onclick="openModal('uploadDocModal')">+ Upload Document</button>
+          </div>
+          <div class="card-body">
+            <table>
+              <thead><tr><th>ID</th><th>Emp ID</th><th>Type</th><th>Name</th><th>Size</th><th>Uploaded</th><th>Actions</th></tr></thead>
+              <tbody id="docTable"><tr><td colspan="7" class="loading">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Upload Document Modal -->
+<div class="modal-overlay" id="uploadDocModal">
+  <div class="modal">
+    <h3>Upload Document</h3>
+    <div class="alert alert-error" id="docError"></div>
+    <div class="form-group"><label>Employee ID</label><input type="number" id="docEmpId" placeholder="Employee ID"/></div>
+    <div class="form-group">
+      <label>Document Type</label>
+      <select id="docType">
+        <option value="offer_letter">Offer Letter</option>
+        <option value="id_proof">ID Proof</option>
+        <option value="contract">Contract</option>
+        <option value="certificate">Certificate</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Document Name</label><input type="text" id="docName" placeholder="John_Offer_Letter.pdf"/></div>
+    <div class="form-group"><label>File</label><input type="file" id="docFile" accept=".pdf,.doc,.docx,.jpg,.png"/></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="uploadDocument()">Upload</button>
+      <button class="btn" style="background:#e2e8f0" onclick="closeModal('uploadDocModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Performance Modal -->
+<div class="modal-overlay" id="addPerfModal">
+  <div class="modal">
+    <h3>Add Performance Review</h3>
+    <div class="alert alert-error" id="perfError"></div>
+    <div class="form-group"><label>Employee ID</label><input type="number" id="pEmpId" placeholder="Employee ID"/></div>
+    <div class="form-group"><label>Period</label><input type="text" id="pPeriod" placeholder="2024-Q1 | 2024-H1 | 2024"/></div>
+    <div class="form-group"><label>Overall Rating (1.0 - 5.0)</label><input type="number" id="pRating" min="1" max="5" step="0.1" placeholder="4.5"/></div>
+    <div class="form-group"><label>KPI Score (0-100)</label><input type="number" id="pKpi" min="0" max="100" placeholder="85"/></div>
+    <div class="form-group"><label>Attendance Score (0-100)</label><input type="number" id="pAttend" min="0" max="100" placeholder="90"/></div>
+    <div class="form-group"><label>Teamwork Score (0-100)</label><input type="number" id="pTeam" min="0" max="100" placeholder="80"/></div>
+    <div class="form-group"><label>Technical Score (0-100)</label><input type="number" id="pTech" min="0" max="100" placeholder="85"/></div>
+    <div class="form-group"><label>Comments</label><input type="text" id="pComments" placeholder="Good performance..."/></div>
+    <div class="form-group"><label>Goals (Next Period)</label><input type="text" id="pGoals" placeholder="Improve technical skills..."/></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="addReview()">Submit</button>
+      <button class="btn" style="background:#e2e8f0" onclick="closeModal('addPerfModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Contract Modal -->
+<div class="modal-overlay" id="addContractModal">
+  <div class="modal">
+    <h3>Add Contract</h3>
+    <div class="alert alert-error" id="contractError"></div>
+    <div class="form-group"><label>Employee ID</label><input type="number" id="cEmpId" placeholder="Employee ID"/></div>
+    <div class="form-group"><label>Contract Type</label>
+      <select id="cType">
+        <option value="full_time">Full Time</option>
+        <option value="part_time">Part Time</option>
+        <option value="contract">Contract</option>
+        <option value="internship">Internship</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Position</label><input type="text" id="cPosition" placeholder="Software Engineer"/></div>
+    <div class="form-group"><label>Department</label><input type="text" id="cDept" placeholder="IT, HR..."/></div>
+    <div class="form-group"><label>Salary</label><input type="number" id="cSalary" placeholder="5000"/></div>
+    <div class="form-group"><label>Start Date</label><input type="date" id="cStart"/></div>
+    <div class="form-group"><label>End Date (leave empty = permanent)</label><input type="date" id="cEnd"/></div>
+    <div class="form-group"><label>Notes</label><input type="text" id="cNotes" placeholder="Optional"/></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="addContract()">Save</button>
+      <button class="btn" style="background:#e2e8f0" onclick="closeModal('addContractModal')">Cancel</button>
     </div>
   </div>
 </div>
@@ -242,7 +370,7 @@
   if (role !== "hr_manager" && role !== "admin") redirectByRole(role);
   document.getElementById("sidebarName").textContent = getUsername();
 
-  const titles = { dashboard:"Dashboard", employees:"Employees", leaves:"Leave Requests", attendance:"Attendance", payroll:"Payroll" };
+  const titles = { dashboard:"Dashboard", employees:"Employees", leaves:"Leave Requests", attendance:"Attendance", payroll:"Payroll", contracts:"Contracts", performance:"Performance Reviews", documents:"Documents" };
   let attChartInst, leaveChartInst, deptChartInst, payrollChartInst;
 
   function showSection(name, el) {
@@ -260,6 +388,9 @@
     else if (name === "leaves")     loadLeaves();
     else if (name === "attendance") loadAttendance();
     else if (name === "payroll")    loadPayroll();
+    else if (name === "contracts")   loadContracts();
+    else if (name === "performance") loadPerformance();
+    else if (name === "documents")   loadDocuments();
   }
 
   function openModal(id)  { document.getElementById(id).classList.add("open"); }
@@ -510,6 +641,167 @@
       });
       closeModal("payrollModal"); loadPayroll();
     } catch(e) { showErr("payError", e.message); }
+  }
+
+  // ── Contracts ────────────────────────────────────────
+  async function loadContracts() {
+    const list = await api("GET", "/hr/contract");
+    renderContracts(list);
+  }
+
+  async function loadExpiring() {
+    const list = await api("GET", "/hr/contract/expiring?days=30");
+    renderContracts(list);
+    document.getElementById("pageTitle").textContent = "⚠️ Expiring Contracts (30 days)";
+  }
+
+  function renderContracts(list) {
+    const tb = document.getElementById("contractTable");
+    if (!list.length) { tb.innerHTML = `<tr><td colspan="10" style="text-align:center;color:#64748b">No contracts</td></tr>`; return; }
+    const statusColors = { active:"approved", expired:"rejected", terminated:"rejected" };
+    tb.innerHTML = list.map(c => `
+      <tr>
+        <td>${c.id}</td>
+        <td>${c.employee_id}</td>
+        <td>${c.contract_type.replace("_"," ")}</td>
+        <td>${c.position}</td>
+        <td>${c.department}</td>
+        <td>${c.salary}</td>
+        <td>${c.start_date}</td>
+        <td>${c.end_date || "<span style='color:#16a34a'>Permanent</span>"}</td>
+        <td><span class="status ${statusColors[c.status]||'pending'}">${c.status}</span></td>
+        <td>
+          <button class="btn btn-danger btn-sm" onclick="terminateContract(${c.id})">Terminate</button>
+        </td>
+      </tr>`).join("");
+  }
+
+  async function addContract() {
+    const errEl = document.getElementById("contractError");
+    errEl.style.display = "none";
+    try {
+      await api("POST", "/hr/contract", {
+        employee_id:   parseInt(document.getElementById("cEmpId").value),
+        contract_type: document.getElementById("cType").value,
+        position:      document.getElementById("cPosition").value,
+        department:    document.getElementById("cDept").value,
+        salary:        parseFloat(document.getElementById("cSalary").value),
+        start_date:    document.getElementById("cStart").value,
+        end_date:      document.getElementById("cEnd").value || null,
+        notes:         document.getElementById("cNotes").value || null
+      });
+      closeModal("addContractModal");
+      loadContracts();
+    } catch(e) { showErr("contractError", e.message); }
+  }
+
+  async function terminateContract(id) {
+    if (!confirm("Terminate this contract?")) return;
+    await api("PUT", `/hr/contract/${id}`, { status: "terminated" });
+    loadContracts();
+  }
+
+  // ── Performance ──────────────────────────────────────
+  async function loadPerformance() {
+    const list = await api("GET", "/hr/performance");
+    const tb = document.getElementById("perfTable");
+    if (!list.length) { tb.innerHTML = `<tr><td colspan="10" style="text-align:center;color:#64748b">No reviews</td></tr>`; return; }
+    const statusColors = { submitted:"processed", acknowledged:"approved", draft:"pending" };
+    tb.innerHTML = list.map(r => `
+      <tr>
+        <td>${r.id}</td>
+        <td>${r.employee_id}</td>
+        <td>${r.period}</td>
+        <td><strong>${r.rating} ⭐</strong></td>
+        <td>${r.kpi_score}</td>
+        <td>${r.attendance_score}</td>
+        <td>${r.teamwork_score}</td>
+        <td>${r.technical_score}</td>
+        <td><span class="status ${statusColors[r.status]||'pending'}">${r.status}</span></td>
+        <td>
+          <button class="btn btn-primary btn-sm" onclick="viewSummary(${r.employee_id})">📊</button>
+        </td>
+      </tr>`).join("");
+  }
+
+  async function addReview() {
+    const errEl = document.getElementById("perfError");
+    errEl.style.display = "none";
+    try {
+      await api("POST", "/hr/performance", {
+        employee_id:      parseInt(document.getElementById("pEmpId").value),
+        period:           document.getElementById("pPeriod").value,
+        rating:           parseFloat(document.getElementById("pRating").value),
+        kpi_score:        parseFloat(document.getElementById("pKpi").value||0),
+        attendance_score: parseFloat(document.getElementById("pAttend").value||0),
+        teamwork_score:   parseFloat(document.getElementById("pTeam").value||0),
+        technical_score:  parseFloat(document.getElementById("pTech").value||0),
+        comments:         document.getElementById("pComments").value||null,
+        goals:            document.getElementById("pGoals").value||null
+      });
+      closeModal("addPerfModal");
+      loadPerformance();
+    } catch(e) { showErr("perfError", e.message); }
+  }
+
+  async function viewSummary(empId) {
+    const s = await api("GET", `/hr/performance/summary/${empId}`);
+    if (s.message) { alert(s.message); return; }
+    alert(`Employee #${s.employee_id} Summary\n\nTotal Reviews: ${s.total_reviews}\nAvg Rating: ${s.avg_rating} ⭐\nAvg KPI: ${s.avg_kpi}\nAvg Attendance: ${s.avg_attendance}\nAvg Teamwork: ${s.avg_teamwork}\nAvg Technical: ${s.avg_technical}`);
+  }
+
+  // ── Documents ────────────────────────────────────────
+  async function loadDocuments() {
+    const list = await api("GET", "/hr/document");
+    const tb = document.getElementById("docTable");
+    if (!list.length) { tb.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#64748b">No documents</td></tr>`; return; }
+    const typeColors = { offer_letter:"approved", id_proof:"processed", contract:"processed", certificate:"approved", other:"pending" };
+    tb.innerHTML = list.map(d => `
+      <tr>
+        <td>${d.id}</td>
+        <td>${d.employee_id}</td>
+        <td><span class="status ${typeColors[d.doc_type]||'pending'}">${d.doc_type.replace(/_/g," ")}</span></td>
+        <td>${d.doc_name}</td>
+        <td>${d.file_size||"-"}</td>
+        <td>${d.created_at.slice(0,10)}</td>
+        <td>
+          <a href="/api/v1/hr/document/download/${d.id}" class="btn btn-success btn-sm" download>⬇ Download</a>
+          <button class="btn btn-danger btn-sm" onclick="deleteDoc(${d.id})">🗑</button>
+        </td>
+      </tr>`).join("");
+  }
+
+  async function uploadDocument() {
+    const errEl = document.getElementById("docError");
+    errEl.style.display = "none";
+    const file = document.getElementById("docFile").files[0];
+    if (!file) { showErr("docError", "Please select a file"); return; }
+
+    const formData = new FormData();
+    formData.append("employee_id", document.getElementById("docEmpId").value);
+    formData.append("doc_type",    document.getElementById("docType").value);
+    formData.append("doc_name",    document.getElementById("docName").value || file.name);
+    formData.append("file",        file);
+
+    try {
+      const res = await fetch("/api/v1/hr/document", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${getToken()}` },
+        body: formData
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || "Upload failed");
+      }
+      closeModal("uploadDocModal");
+      loadDocuments();
+    } catch(e) { showErr("docError", e.message); }
+  }
+
+  async function deleteDoc(id) {
+    if (!confirm("Delete this document?")) return;
+    await api("DELETE", `/hr/document/${id}`);
+    loadDocuments();
   }
 
   document.addEventListener("click", e => {

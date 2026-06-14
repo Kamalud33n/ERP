@@ -45,3 +45,31 @@ class GeneralLedger(Base):
     reference    = Column(String, nullable=True)
     created_by   = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at   = Column(DateTime, default=datetime.utcnow)
+
+
+class JournalEntry(Base):
+    __tablename__ = "journal_entries"
+
+    id           = Column(Integer, primary_key=True, index=True)
+    entry_number = Column(String, unique=True, nullable=False)  # JE-2024-0001
+    date         = Column(Date, nullable=False)
+    description  = Column(String, nullable=False)
+    reference    = Column(String, nullable=True)
+    status       = Column(String, default="draft")  # draft | posted | reversed
+    created_by   = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at   = Column(DateTime, default=datetime.utcnow)
+
+    lines = relationship("JournalLine", back_populates="entry")
+
+
+class JournalLine(Base):
+    __tablename__ = "journal_lines"
+
+    id           = Column(Integer, primary_key=True, index=True)
+    entry_id     = Column(Integer, ForeignKey("journal_entries.id"), nullable=False)
+    account_type = Column(String, nullable=False)  # asset | liability | income | expense
+    description  = Column(String, nullable=True)
+    debit        = Column(Float, default=0.0)
+    credit       = Column(Float, default=0.0)
+
+    entry = relationship("JournalEntry", back_populates="lines")

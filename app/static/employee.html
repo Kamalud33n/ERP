@@ -36,6 +36,9 @@
       <button class="menu-item" onclick="showSection('expenses', this)">
         <span class="icon">🧾</span> My Expenses
       </button>
+      <button class="menu-item" onclick="showSection('documents', this)">
+        <span class="icon">📁</span> My Documents
+      </button>
       <div class="menu-section">More</div>
       <button class="menu-item" onclick="window.location.href='/procurement.html'"><span class="icon">📋</span> Purchase Request</button>
       <button class="menu-item" onclick="window.location.href='/inventory.html'"><span class="icon">📦</span> Inventory</button>
@@ -139,6 +142,19 @@
         </div>
       </div>
 
+      <!-- Documents -->
+      <div id="sec-documents" class="section">
+        <div class="card">
+          <div class="card-header"><h3>📁 My Documents</h3></div>
+          <div class="card-body">
+            <table>
+              <thead><tr><th>ID</th><th>Type</th><th>Name</th><th>Size</th><th>Date</th><th>Action</th></tr></thead>
+              <tbody id="docTable"><tr><td colspan="6" class="loading">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -203,7 +219,7 @@
 
   const titles = {
     dashboard: "Dashboard", profile: "My Profile", leaves: "My Leaves",
-    attendance: "My Attendance", payslips: "My Payslips", expenses: "My Expenses"
+    attendance: "My Attendance", payslips: "My Payslips", expenses: "My Expenses", documents: "My Documents"
   };
 
   function showSection(name, el) {
@@ -222,6 +238,7 @@
     else if (name === "attendance") loadAttendance();
     else if (name === "payslips")   loadPayslips();
     else if (name === "expenses")   loadExpenses();
+    else if (name === "documents") loadDocuments();
   }
 
   function openApplyLeave()  { document.getElementById("leaveModal").classList.add("open"); }
@@ -347,6 +364,22 @@
       errEl.textContent = e.message;
       errEl.style.display = "block";
     }
+  }
+
+  async function loadDocuments() {
+    const list = await api("GET", "/hr/document/me");
+    const tb = document.getElementById("docTable");
+    if (!list.length) { tb.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#64748b">No documents uploaded yet</td></tr>`; return; }
+    const typeColors = { offer_letter:"approved", id_proof:"processed", contract:"processed", certificate:"approved", other:"pending" };
+    tb.innerHTML = list.map(d => `
+      <tr>
+        <td>${d.id}</td>
+        <td><span class="status ${typeColors[d.doc_type]||'pending'}">${d.doc_type.replace(/_/g," ")}</span></td>
+        <td>${d.doc_name}</td>
+        <td>${d.file_size||"-"}</td>
+        <td>${d.created_at.slice(0,10)}</td>
+        <td><a href="/api/v1/hr/document/download/${d.id}" class="btn btn-success btn-sm" download>⬇ Download</a></td>
+      </tr>`).join("");
   }
 
   loadDashboard();

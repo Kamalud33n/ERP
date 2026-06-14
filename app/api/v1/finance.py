@@ -82,3 +82,51 @@ def gl_by_type(account_type: str, db: Session = Depends(get_db), current_user=De
 @router.get("/summary")
 def finance_summary(db: Session = Depends(get_db), current_user=Depends(get_finance)):
     return get_finance_summary(db)
+
+
+# ── Reports ────────────────────────────────────────────
+from app.services.finance_service import get_profit_and_loss, get_cash_flow, get_expense_analysis
+from typing import Optional
+
+# Finance/Admin → P&L Report
+@router.get("/reports/pl")
+def profit_loss(month: Optional[str] = None, db: Session = Depends(get_db), current_user=Depends(get_finance)):
+    return get_profit_and_loss(db, month)
+
+# Finance/Admin → Cash Flow
+@router.get("/reports/cashflow")
+def cash_flow(month: Optional[str] = None, db: Session = Depends(get_db), current_user=Depends(get_finance)):
+    return get_cash_flow(db, month)
+
+# Finance/Admin → Expense Analysis
+@router.get("/reports/expense-analysis")
+def expense_analysis(db: Session = Depends(get_db), current_user=Depends(get_finance)):
+    return get_expense_analysis(db)
+
+
+# ── Journal Entries ────────────────────────────────────
+from app.schemas.finance import JournalEntryCreate, JournalEntryOut
+from app.services.finance_service import (
+    create_journal_entry, get_all_journal_entries,
+    get_journal_entry_by_id, reverse_journal_entry
+)
+
+# Finance/Admin → create journal entry
+@router.post("/journal", response_model=JournalEntryOut)
+def add_journal(data: JournalEntryCreate, db: Session = Depends(get_db), current_user=Depends(get_finance)):
+    return create_journal_entry(db, data, current_user.id)
+
+# Finance/Admin → all journal entries
+@router.get("/journal", response_model=List[JournalEntryOut])
+def all_journals(db: Session = Depends(get_db), current_user=Depends(get_finance)):
+    return get_all_journal_entries(db)
+
+# Finance/Admin → single journal entry
+@router.get("/journal/{entry_id}", response_model=JournalEntryOut)
+def get_journal(entry_id: int, db: Session = Depends(get_db), current_user=Depends(get_finance)):
+    return get_journal_entry_by_id(db, entry_id)
+
+# Finance/Admin → reverse journal entry
+@router.post("/journal/{entry_id}/reverse", response_model=JournalEntryOut)
+def reverse_journal(entry_id: int, db: Session = Depends(get_db), current_user=Depends(get_finance)):
+    return reverse_journal_entry(db, entry_id, current_user.id)
