@@ -8,12 +8,12 @@ class Vendor(Base):
     __tablename__ = "vendors"
 
     id           = Column(Integer, primary_key=True, index=True)
-    name         = Column(String, nullable=False)
-    email        = Column(String, nullable=True)
-    phone        = Column(String, nullable=True)
+    name         = Column(String(200), nullable=False)
+    email        = Column(String(255), nullable=True)
+    phone        = Column(String(20), nullable=True)
     address      = Column(Text, nullable=True)
-    category     = Column(String, nullable=True)  # IT, Office, Maintenance...
-    status       = Column(String, default="active")  # active | inactive
+    category     = Column(String(100), nullable=True)  # IT, Office, Maintenance...
+    status       = Column(String(20), default="active")  # active | inactive
     created_by   = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at   = Column(DateTime, default=datetime.utcnow)
 
@@ -24,13 +24,13 @@ class PurchaseRequest(Base):
     __tablename__ = "purchase_requests"
 
     id            = Column(Integer, primary_key=True, index=True)
-    title         = Column(String, nullable=False)
+    title         = Column(String(200), nullable=False)
     description   = Column(Text, nullable=True)
     quantity      = Column(Integer, nullable=False)
     estimated_cost= Column(Float, nullable=False)
-    department    = Column(String, nullable=False)
-    priority      = Column(String, default="medium")  # low | medium | high | urgent
-    status        = Column(String, default="pending")  # pending | hr_approved | finance_approved | final_approved | rejected
+    department    = Column(String(100), nullable=False)
+    priority      = Column(String(20), default="medium")  # low | medium | high | urgent
+    status        = Column(String(30), default="pending")  # pending | hr_approved | finance_approved | final_approved | rejected
 
     requested_by  = Column(Integer, ForeignKey("users.id"), nullable=False)
     hr_approved_by= Column(Integer, ForeignKey("users.id"), nullable=True)
@@ -52,12 +52,12 @@ class PurchaseOrder(Base):
     id                  = Column(Integer, primary_key=True, index=True)
     purchase_request_id = Column(Integer, ForeignKey("purchase_requests.id"), nullable=False)
     vendor_id           = Column(Integer, ForeignKey("vendors.id"), nullable=False)
-    po_number           = Column(String, unique=True, nullable=False)
+    po_number           = Column(String(50), unique=True, nullable=False)
     quantity            = Column(Integer, nullable=False)
     unit_price          = Column(Float, nullable=False)
     total_amount        = Column(Float, nullable=False)
     delivery_date       = Column(Date, nullable=True)
-    status              = Column(String, default="pending")  # pending | delivered | cancelled
+    status              = Column(String(20), default="pending")  # pending | delivered | cancelled
     notes               = Column(Text, nullable=True)
     created_by          = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at          = Column(DateTime, default=datetime.utcnow)

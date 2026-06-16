@@ -39,10 +39,16 @@
       <button class="menu-item" onclick="showSection('documents', this)">
         <span class="icon">📁</span> My Documents
       </button>
+      <button class="menu-item" onclick="showSection('performance', this)">
+        <span class="icon">⭐</span> Performance Review
+      </button>
+      <button class="menu-item" onclick="showSection('contracts', this)">
+        <span class="icon">📄</span> My Contract
+      </button>
       <div class="menu-section">More</div>
+      <button class="menu-item" onclick="showSection('workflow', this)"><span class="icon">🔄</span> My Requests</button>
       <button class="menu-item" onclick="window.location.href='/procurement.html'"><span class="icon">📋</span> Purchase Request</button>
-      <button class="menu-item" onclick="window.location.href='/inventory.html'"><span class="icon">📦</span> Inventory</button>
-      <button class="menu-item" onclick="window.location.href='/asset.html'"><span class="icon">🏷️</span> Assets</button>
+      <button class="menu-item" onclick="showSection('myassets', this)"><span class="icon">🏷️</span> My Assets</button>
     </nav>
     <div class="sidebar-user">
       <div class="name" id="sidebarName">Employee</div>
@@ -96,14 +102,28 @@
 
       <!-- Attendance -->
       <div id="sec-attendance" class="section">
+        <!-- Today's Status Card -->
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-header"><h3>📍 Today's Attendance</h3></div>
+          <div class="card-body">
+            <div id="todayStatus" style="text-align:center;padding:10px">
+              <div class="loading">Loading...</div>
+            </div>
+            <div style="display:flex;gap:12px;justify-content:center;margin-top:16px">
+              <button class="btn btn-success" onclick="checkIn()">✅ Check In</button>
+              <button class="btn btn-danger"  onclick="checkOut()">🚪 Check Out</button>
+            </div>
+          </div>
+        </div>
+        <!-- History -->
         <div class="card">
-          <div class="card-header"><h3>✅ My Attendance</h3></div>
+          <div class="card-header"><h3>📅 Attendance History</h3></div>
           <div class="card-body">
             <table>
               <thead>
-                <tr><th>ID</th><th>Date</th><th>Check In</th><th>Check Out</th><th>Status</th></tr>
+                <tr><th>Date</th><th>Check In</th><th>Check Out</th><th>Status</th></tr>
               </thead>
-              <tbody id="attendanceTable"><tr><td colspan="5" class="loading">Loading...</td></tr></tbody>
+              <tbody id="attendanceTable"><tr><td colspan="4" class="loading">Loading...</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -116,9 +136,9 @@
           <div class="card-body">
             <table>
               <thead>
-                <tr><th>ID</th><th>Month</th><th>Basic</th><th>Allowances</th><th>Deductions</th><th>Net Salary</th><th>Status</th></tr>
+                <tr><th>ID</th><th>Month</th><th>Basic</th><th>Allowances</th><th>Deductions</th><th>Net Salary</th><th>Status</th><th>Download</th></tr>
               </thead>
-              <tbody id="payslipTable"><tr><td colspan="7" class="loading">Loading...</td></tr></tbody>
+              <tbody id="payslipTable"><tr><td colspan="8" class="loading">Loading...</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -150,6 +170,70 @@
             <table>
               <thead><tr><th>ID</th><th>Type</th><th>Name</th><th>Size</th><th>Date</th><th>Action</th></tr></thead>
               <tbody id="docTable"><tr><td colspan="6" class="loading">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Performance Review -->
+      <div id="sec-performance" class="section">
+        <div class="card">
+          <div class="card-header"><h3>⭐ Performance Reviews</h3></div>
+          <div class="card-body" id="perfBody">
+            <div class="loading">Loading...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Contracts -->
+      <div id="sec-contracts" class="section">
+        <div class="card">
+          <div class="card-header"><h3>📄 My Employment Contract</h3></div>
+          <div class="card-body" id="contractBody">
+            <div class="loading">Loading...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Workflow / My Requests -->
+      <div id="sec-workflow" class="section">
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-header"><h3>📅 Leave Requests</h3></div>
+          <div class="card-body">
+            <table>
+              <thead><tr><th>ID</th><th>Type</th><th>Days</th><th>Start</th><th>End</th><th>Status</th></tr></thead>
+              <tbody id="wfLeaveTable"><tr><td colspan="6" class="loading">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-header"><h3>🧾 Expense Requests</h3></div>
+          <div class="card-body">
+            <table>
+              <thead><tr><th>ID</th><th>Title</th><th>Amount</th><th>Category</th><th>Date</th><th>Status</th></tr></thead>
+              <tbody id="wfExpenseTable"><tr><td colspan="6" class="loading">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3>📋 Purchase Requests</h3></div>
+          <div class="card-body">
+            <table>
+              <thead><tr><th>ID</th><th>Title</th><th>Qty</th><th>Est. Cost</th><th>Priority</th><th>Status</th></tr></thead>
+              <tbody id="wfPRTable"><tr><td colspan="6" class="loading">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- My Assets -->
+      <div id="sec-myassets" class="section">
+        <div class="card">
+          <div class="card-header"><h3>🏷️ My Assigned Assets</h3></div>
+          <div class="card-body">
+            <table>
+              <thead><tr><th>Code</th><th>Name</th><th>Category</th><th>Location</th><th>Status</th></tr></thead>
+              <tbody id="myAssetsTable"><tr><td colspan="5" class="loading">Loading...</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -219,7 +303,9 @@
 
   const titles = {
     dashboard: "Dashboard", profile: "My Profile", leaves: "My Leaves",
-    attendance: "My Attendance", payslips: "My Payslips", expenses: "My Expenses", documents: "My Documents"
+    attendance: "My Attendance", payslips: "My Payslips", expenses: "My Expenses", documents: "My Documents",
+    performance: "Performance Reviews", contracts: "My Employment Contract", myassets: "My Assigned Assets",
+    workflow: "My Requests Status"
   };
 
   function showSection(name, el) {
@@ -232,13 +318,17 @@
   }
 
   function loadSection(name) {
-    if (name === "dashboard")  loadDashboard();
-    else if (name === "profile")    loadProfile();
-    else if (name === "leaves")     loadLeaves();
-    else if (name === "attendance") loadAttendance();
-    else if (name === "payslips")   loadPayslips();
-    else if (name === "expenses")   loadExpenses();
-    else if (name === "documents") loadDocuments();
+    if (name === "dashboard")    loadDashboard();
+    else if (name === "profile")      loadProfile();
+    else if (name === "leaves")       loadLeaves();
+    else if (name === "attendance")   loadAttendance();
+    else if (name === "payslips")     loadPayslips();
+    else if (name === "expenses")     loadExpenses();
+    else if (name === "documents")    loadDocuments();
+    else if (name === "performance")  loadPerformance();
+    else if (name === "contracts")    loadContract();
+    else if (name === "myassets")     loadMyAssets();
+    else if (name === "workflow")     loadWorkflow();
   }
 
   function openApplyLeave()  { document.getElementById("leaveModal").classList.add("open"); }
@@ -251,13 +341,17 @@
       document.getElementById("statsGrid").innerHTML = `<div class="loading">${d.message}</div>`;
       return;
     }
+    const presentTodayColor = d.present_today === "present" ? "green" : d.present_today === "absent" ? "red" : "yellow";
+    const presentTodayLabel = d.present_today === "present" ? "Present ✅" : d.present_today === "absent" ? "Absent ❌" : "Not Marked";
+    const contractColor = d.contract_status === "active" ? "green" : d.contract_status === "expired" ? "red" : "yellow";
+    const contractLabel = d.contract_status === "active" ? "Active ✅" : d.contract_status === "expired" ? "Expired ⚠️" : "No Contract";
+
     document.getElementById("statsGrid").innerHTML = `
       <div class="stat-card"><div class="label">Name</div><div class="value" style="font-size:18px">${d.name}</div><div class="sub">${d.designation}</div></div>
-      <div class="stat-card"><div class="label">Department</div><div class="value" style="font-size:18px">${d.department}</div></div>
-      <div class="stat-card yellow"><div class="label">Pending Leaves</div><div class="value">${d.pending_leaves}</div></div>
-      <div class="stat-card green"><div class="label">Approved Leaves</div><div class="value">${d.approved_leaves}</div></div>
-      <div class="stat-card green"><div class="label">Present Days</div><div class="value">${d.present_days}</div></div>
-      <div class="stat-card"><div class="label">Last Net Salary</div><div class="value">${d.last_net_salary}</div><div class="sub">Most recent payslip</div></div>
+      <div class="stat-card ${presentTodayColor}"><div class="label">Today's Attendance</div><div class="value" style="font-size:18px">${presentTodayLabel}</div></div>
+      <div class="stat-card ${d.pending_requests > 0 ? 'yellow' : 'green'}"><div class="label">Pending Requests</div><div class="value">${d.pending_requests}</div><div class="sub">Leave + Expense + PR</div></div>
+      <div class="stat-card"><div class="label">Latest Payslip</div><div class="value">${d.last_net_salary}</div><div class="sub">${d.last_payroll_month}</div></div>
+      <div class="stat-card ${contractColor}"><div class="label">Contract Status</div><div class="value" style="font-size:18px">${contractLabel}</div></div>
     `;
   }
 
@@ -289,28 +383,63 @@
   }
 
   async function loadAttendance() {
+    // Today status
+    const today = await api("GET", "/hr/attendance/today");
+    const todayEl = document.getElementById("todayStatus");
+    const statusColors = { present:"#16a34a", absent:"#dc2626", not_marked:"#d97706", late:"#f59e0b" };
+    todayEl.innerHTML = `
+      <div style="font-size:15px;margin-bottom:8px">
+        <strong>Status:</strong>
+        <span style="color:${statusColors[today.status]||'#64748b'};font-weight:700">
+          ${today.status.replace("_"," ").toUpperCase()}
+        </span>
+      </div>
+      <div style="font-size:13px;color:#64748b">
+        Check In: <strong>${today.check_in ? today.check_in.slice(11,16) : "—"}</strong>
+        &nbsp;|&nbsp;
+        Check Out: <strong>${today.check_out ? today.check_out.slice(11,16) : "—"}</strong>
+      </div>`;
+
+    // History
     const list = await api("GET", "/hr/attendance/me");
     const tb = document.getElementById("attendanceTable");
-    if (!list.length) { tb.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#64748b">No attendance records</td></tr>`; return; }
-    tb.innerHTML = list.map(a => `
+    if (!list.length) { tb.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#64748b">No attendance records</td></tr>`; return; }
+    tb.innerHTML = list.sort((a,b) => new Date(b.date) - new Date(a.date)).map(a => `
       <tr>
-        <td>${a.id}</td><td>${a.date}</td>
+        <td>${a.date}</td>
         <td>${a.check_in ? a.check_in.slice(11,16) : "-"}</td>
         <td>${a.check_out ? a.check_out.slice(11,16) : "-"}</td>
-        <td><span class="status ${a.status}">${a.status}</span></td>
+        <td><span class="status ${a.status==='present'?'approved':a.status==='absent'?'rejected':'pending'}">${a.status}</span></td>
       </tr>`).join("");
+  }
+
+  async function checkIn() {
+    try {
+      await api("POST", "/hr/attendance/checkin");
+      alert("✅ Checked in successfully!");
+      loadAttendance();
+    } catch(e) { alert(e.message); }
+  }
+
+  async function checkOut() {
+    try {
+      await api("POST", "/hr/attendance/checkout");
+      alert("🚪 Checked out successfully!");
+      loadAttendance();
+    } catch(e) { alert(e.message); }
   }
 
   async function loadPayslips() {
     const list = await api("GET", "/hr/payroll/me");
     const tb = document.getElementById("payslipTable");
-    if (!list.length) { tb.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#64748b">No payslips yet</td></tr>`; return; }
+    if (!list.length) { tb.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#64748b">No payslips yet</td></tr>`; return; }
     tb.innerHTML = list.map(p => `
       <tr>
         <td>${p.id}</td><td>${p.month}</td>
         <td>${p.basic_salary}</td><td>${p.allowances}</td><td>${p.deductions}</td>
         <td><strong>${p.net_salary}</strong></td>
-        <td><span class="status ${p.status}">${p.status}</span></td>
+        <td><span class="status ${p.status==='processed'?'approved':p.status}">${p.status}</span></td>
+        <td><button class="btn btn-sm" style="background:#fee2e2;color:#dc2626" onclick="downloadFile('/hr/export/payslip/${p.id}/pdf','payslip_${p.month}.pdf')">📄 PDF</button></td>
       </tr>`).join("");
   }
 
@@ -366,6 +495,78 @@
     }
   }
 
+  // ── Workflow / My Requests ───────────────────────────
+  async function loadWorkflow() {
+    const [leaves, expenses, prs] = await Promise.all([
+      api("GET", "/hr/leave/me"),
+      api("GET", "/finance/expense/me"),
+      api("GET", "/procurement/pr/me")
+    ]);
+
+    const statusColors = { pending:"pending", approved:"approved", rejected:"rejected",
+      hr_approved:"processed", finance_approved:"processed", final_approved:"approved" };
+
+    // Leave table
+    const leaveTb = document.getElementById("wfLeaveTable");
+    if (!leaves.length) { leaveTb.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#64748b">No leave requests</td></tr>`; }
+    else leaveTb.innerHTML = leaves.map(l => `
+      <tr>
+        <td>${l.id}</td>
+        <td>${l.leave_type}</td>
+        <td>${l.days}</td>
+        <td>${l.start_date}</td>
+        <td>${l.end_date}</td>
+        <td><span class="status ${statusColors[l.status]||'pending'}">${l.status}</span></td>
+      </tr>`).join("");
+
+    // Expense table
+    const expTb = document.getElementById("wfExpenseTable");
+    if (!expenses.length) { expTb.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#64748b">No expense requests</td></tr>`; }
+    else expTb.innerHTML = expenses.map(e => `
+      <tr>
+        <td>${e.id}</td>
+        <td>${e.title}</td>
+        <td>${e.amount}</td>
+        <td>${e.category}</td>
+        <td>${e.date}</td>
+        <td><span class="status ${statusColors[e.status]||'pending'}">${e.status}</span></td>
+      </tr>`).join("");
+
+    // PR table
+    const prTb = document.getElementById("wfPRTable");
+    if (!prs.length) { prTb.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#64748b">No purchase requests</td></tr>`; }
+    else prTb.innerHTML = prs.map(p => `
+      <tr>
+        <td>${p.id}</td>
+        <td>${p.title}</td>
+        <td>${p.quantity}</td>
+        <td>${p.estimated_cost}</td>
+        <td><span class="priority-${p.priority}">${p.priority.toUpperCase()}</span></td>
+        <td><span class="status ${statusColors[p.status]||'pending'}">${p.status.replace(/_/g," ")}</span></td>
+      </tr>`).join("");
+  }
+
+  async function downloadFile(endpoint, filename) {
+    try {
+      const res = await fetch(`/api/v1${endpoint}`, {
+        headers: { "Authorization": `Bearer ${getToken()}` }
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: "Download failed" }));
+        throw new Error(err.detail || "Download failed");
+      }
+      const blob = await res.blob();
+      const url  = window.URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) { alert(e.message); }
+  }
+
   async function loadDocuments() {
     const list = await api("GET", "/hr/document/me");
     const tb = document.getElementById("docTable");
@@ -379,6 +580,79 @@
         <td>${d.file_size||"-"}</td>
         <td>${d.created_at.slice(0,10)}</td>
         <td><a href="/api/v1/hr/document/download/${d.id}" class="btn btn-success btn-sm" download>⬇ Download</a></td>
+      </tr>`).join("");
+  }
+
+  // ── Performance ──────────────────────────────────────
+  async function loadPerformance() {
+    const list = await api("GET", "/hr/performance/me");
+    const body = document.getElementById("perfBody");
+    if (!list.length) { body.innerHTML = `<div style="text-align:center;color:#64748b;padding:20px">No performance reviews yet</div>`; return; }
+    body.innerHTML = list.map(r => `
+      <div class="card" style="margin-bottom:12px;box-shadow:none;border:1px solid #e2e8f0">
+        <div class="card-body">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <h4 style="font-size:15px">${r.period}</h4>
+            <span style="font-size:18px;font-weight:700">${r.rating} ⭐</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px">
+            <div class="stat-card" style="padding:10px"><div class="label">KPI</div><div class="value" style="font-size:18px">${r.kpi_score}</div></div>
+            <div class="stat-card" style="padding:10px"><div class="label">Attendance</div><div class="value" style="font-size:18px">${r.attendance_score}</div></div>
+            <div class="stat-card" style="padding:10px"><div class="label">Teamwork</div><div class="value" style="font-size:18px">${r.teamwork_score}</div></div>
+            <div class="stat-card" style="padding:10px"><div class="label">Technical</div><div class="value" style="font-size:18px">${r.technical_score}</div></div>
+          </div>
+          ${r.comments ? `<p style="font-size:13px;color:#64748b"><strong>Manager Comments:</strong> ${r.comments}</p>` : ""}
+          ${r.goals ? `<p style="font-size:13px;color:#64748b;margin-top:6px"><strong>Goals:</strong> ${r.goals}</p>` : ""}
+          <div style="margin-top:10px">
+            <span class="status ${r.status==='acknowledged'?'approved':'pending'}">${r.status}</span>
+            ${r.status !== 'acknowledged' ? `<button class="btn btn-success btn-sm" style="margin-left:8px" onclick="acknowledgeReview(${r.id})">Acknowledge</button>` : ""}
+          </div>
+        </div>
+      </div>`).join("");
+  }
+
+  async function acknowledgeReview(id) {
+    await api("PUT", `/hr/performance/${id}/acknowledge`);
+    loadPerformance();
+  }
+
+  // ── Contract ─────────────────────────────────────────
+  async function loadContract() {
+    const list = await api("GET", "/hr/contract/me");
+    const body = document.getElementById("contractBody");
+    if (!list.length) { body.innerHTML = `<div style="text-align:center;color:#64748b;padding:20px">No contract on file</div>`; return; }
+    const statusColors = { active:"approved", expired:"rejected", terminated:"rejected" };
+    body.innerHTML = list.map(c => `
+      <div class="card" style="margin-bottom:12px;box-shadow:none;border:1px solid #e2e8f0">
+        <div class="card-body">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <h4 style="font-size:15px">${c.position} — ${c.contract_type.replace("_"," ")}</h4>
+            <span class="status ${statusColors[c.status]||'pending'}">${c.status}</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">
+            <div class="stat-card" style="padding:10px"><div class="label">Department</div><div class="value" style="font-size:16px">${c.department}</div></div>
+            <div class="stat-card" style="padding:10px"><div class="label">Salary</div><div class="value" style="font-size:16px">${c.salary}</div></div>
+            <div class="stat-card" style="padding:10px"><div class="label">Start Date</div><div class="value" style="font-size:16px">${c.start_date}</div></div>
+            <div class="stat-card ${c.end_date ? 'yellow' : 'green'}" style="padding:10px"><div class="label">End Date</div><div class="value" style="font-size:16px">${c.end_date || "Permanent"}</div></div>
+          </div>
+          ${c.notes ? `<p style="font-size:13px;color:#64748b;margin-top:10px"><strong>Notes:</strong> ${c.notes}</p>` : ""}
+        </div>
+      </div>`).join("");
+  }
+
+  // ── My Assets ────────────────────────────────────────
+  async function loadMyAssets() {
+    const list = await api("GET", "/asset/my-assets");
+    const tb = document.getElementById("myAssetsTable");
+    if (!list.length) { tb.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#64748b">No assets assigned to you</td></tr>`; return; }
+    const statusColors = { active:"approved", under_repair:"pending", disposed:"rejected", lost:"rejected" };
+    tb.innerHTML = list.map(a => `
+      <tr>
+        <td><code>${a.asset_code}</code></td>
+        <td><strong>${a.name}</strong></td>
+        <td>${a.category}</td>
+        <td>${a.location||"-"}</td>
+        <td><span class="status ${statusColors[a.status]||'pending'}">${a.status.replace("_"," ")}</span></td>
       </tr>`).join("");
   }
 

@@ -187,3 +187,97 @@ def download_document(doc_id: int, db: Session = Depends(get_db), current_user=D
 @router.delete("/document/{doc_id}")
 def remove_document(doc_id: int, db: Session = Depends(get_db), current_user=Depends(get_hr)):
     return delete_document(db, doc_id)
+
+
+# ── Export Reports ─────────────────────────────────────
+from fastapi.responses import StreamingResponse
+from app.services.export_service import (
+    export_payroll_pdf, export_payroll_excel,
+    export_employees_pdf, export_employees_excel
+)
+from app.services.employee_service import get_all_employees
+
+# HR/Admin → export payroll PDF
+@router.get("/export/payroll/pdf")
+def export_payroll_pdf_route(db: Session = Depends(get_db), current_user=Depends(get_hr)):
+    payrolls = get_all_payrolls(db)
+    buffer = export_payroll_pdf(payrolls)
+    return StreamingResponse(buffer, media_type="application/pdf",
+        headers={"Content-Disposition": "attachment; filename=payroll_report.pdf"})
+
+# HR/Admin → export payroll Excel
+@router.get("/export/payroll/excel")
+def export_payroll_excel_route(db: Session = Depends(get_db), current_user=Depends(get_hr)):
+    payrolls = get_all_payrolls(db)
+    buffer = export_payroll_excel(payrolls)
+    return StreamingResponse(buffer, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=payroll_report.xlsx"})
+
+# HR/Admin → export employees PDF
+@router.get("/export/employees/pdf")
+def export_employees_pdf_route(db: Session = Depends(get_db), current_user=Depends(get_hr)):
+    employees = get_all_employees(db)
+    buffer = export_employees_pdf(employees)
+    return StreamingResponse(buffer, media_type="application/pdf",
+        headers={"Content-Disposition": "attachment; filename=employee_list.pdf"})
+
+# HR/Admin → export employees Excel
+@router.get("/export/employees/excel")
+def export_employees_excel_route(db: Session = Depends(get_db), current_user=Depends(get_hr)):
+    employees = get_all_employees(db)
+    buffer = export_employees_excel(employees)
+    return StreamingResponse(buffer, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=employee_list.xlsx"})
+
+
+# ── Single Payslip PDF ─────────────────────────────────
+from app.services.export_service import export_single_payslip_pdf
+from app.services.employee_service import get_all_employees
+
+@router.get("/export/payslip/{payroll_id}/pdf")
+def download_payslip(payroll_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    from app.models.hr import Payroll
+    from app.models.employee import Employee
+
+    payroll = db.query(Payroll).filter(Payroll.id == payroll_id).first()
+    if not payroll:
+        raise HTTPException(status_code=404, detail="Payroll not found")
+
+    # Employee can only download own payslip
+    if current_user.role == "employee":
+        employee = get_employee_by_user_id(db, current_user.id)
+        if payroll.employee_id != employee.id:
+            raise HTTPException(status_code=403, detail="Access denied")
+    else:
+        employee = db.query(Employee).filter(Employee.id == payroll.employee_id).first()
+
+    buffer = export_single_payslip_pdf(payroll, employee)
+    return StreamingResponse(buffer, media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=payslip_{payroll.month}.pdf"})
+
+
+# ── Employee Self Check In/Out ──────────────────────────
+from app.services.hr_service import employee_check_in, employee_check_out, get_today_attendance
+
+@router.post("/attendance/checkin")
+def check_in(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    employee = get_employee_by_user_id(db, current_user.id)
+    return employee_check_in(db, employee.id)
+
+@router.post("/attendance/checkout")
+def check_out(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    employee = get_employee_by_user_id(db, current_user.id)
+    return employee_check_out(db, employee.id)
+
+@router.get("/attendance/today")
+def today_attendance(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    employee = get_employee_by_user_id(db, current_user.id)
+    att = get_today_attendance(db, employee.id)
+    if not att:
+        return {"status": "not_marked", "check_in": None, "check_out": None}
+    return {
+        "status":    att.status,
+        "check_in":  str(att.check_in) if att.check_in else None,
+        "check_out": str(att.check_out) if att.check_out else None,
+        "date":      str(att.date)
+    }

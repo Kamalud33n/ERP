@@ -29,6 +29,13 @@ def submit_expense(data: ExpenseCreate, db: Session = Depends(get_db), current_u
 def all_expenses(db: Session = Depends(get_db), current_user=Depends(get_finance)):
     return get_all_expenses(db)
 
+# Any user → own expenses
+@router.get("/expense/me", response_model=List[ExpenseOut])
+def my_expenses(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    from app.models.finance import Expense
+    expenses = db.query(Expense).filter(Expense.submitted_by == current_user.id).all()
+    return expenses
+
 # Finance/Admin → filter by department
 @router.get("/expense/dept/{department}", response_model=List[ExpenseOut])
 def expenses_by_dept(department: str, db: Session = Depends(get_db), current_user=Depends(get_finance)):
@@ -130,3 +137,34 @@ def get_journal(entry_id: int, db: Session = Depends(get_db), current_user=Depen
 @router.post("/journal/{entry_id}/reverse", response_model=JournalEntryOut)
 def reverse_journal(entry_id: int, db: Session = Depends(get_db), current_user=Depends(get_finance)):
     return reverse_journal_entry(db, entry_id, current_user.id)
+
+
+# ── Export Reports ─────────────────────────────────────
+from fastapi.responses import StreamingResponse
+from app.services.export_service import (
+    export_expense_pdf, export_expense_excel, export_pl_pdf
+)
+
+# Finance/Admin → export expenses PDF
+@router.get("/export/expenses/pdf")
+def export_expenses_pdf_route(db: Session = Depends(get_db), current_user=Depends(get_finance)):
+    expenses = get_all_expenses(db)
+    buffer = export_expense_pdf(expenses)
+    return StreamingResponse(buffer, media_type="application/pdf",
+        headers={"Content-Disposition": "attachment; filename=expense_report.pdf"})
+
+# Finance/Admin → export expenses Excel
+@router.get("/export/expenses/excel")
+def export_expenses_excel_route(db: Session = Depends(get_db), current_user=Depends(get_finance)):
+    expenses = get_all_expenses(db)
+    buffer = export_expense_excel(expenses)
+    return StreamingResponse(buffer, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=expense_report.xlsx"})
+
+# Finance/Admin → export P&L PDF
+@router.get("/export/pl/pdf")
+def export_pl_pdf_route(month: Optional[str] = None, db: Session = Depends(get_db), current_user=Depends(get_finance)):
+    pl_data = get_profit_and_loss(db, month)
+    buffer = export_pl_pdf(pl_data)
+    return StreamingResponse(buffer, media_type="application/pdf",
+        headers={"Content-Disposition": "attachment; filename=profit_loss_report.pdf"})

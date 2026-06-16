@@ -99,7 +99,11 @@
         <div class="card">
           <div class="card-header">
             <h3>👥 Employees</h3>
-            <button class="btn btn-primary btn-sm" onclick="openModal('addEmpModal')">+ Add Employee</button>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-sm" style="background:#fee2e2;color:#dc2626" onclick="downloadFile('/hr/export/employees/pdf','employee_list.pdf')">📄 PDF</button>
+              <button class="btn btn-sm" style="background:#dcfce7;color:#16a34a" onclick="downloadFile('/hr/export/employees/excel','employee_list.xlsx')">📊 Excel</button>
+              <button class="btn btn-primary btn-sm" onclick="openModal('addEmpModal')">+ Add Employee</button>
+            </div>
           </div>
           <div class="card-body">
             <table>
@@ -144,7 +148,11 @@
         <div class="card">
           <div class="card-header">
             <h3>💰 Payroll</h3>
-            <button class="btn btn-primary btn-sm" onclick="openModal('payrollModal')">+ Process Payroll</button>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-sm" style="background:#fee2e2;color:#dc2626" onclick="downloadFile('/hr/export/payroll/pdf','payroll_report.pdf')">📄 PDF</button>
+              <button class="btn btn-sm" style="background:#dcfce7;color:#16a34a" onclick="downloadFile('/hr/export/payroll/excel','payroll_report.xlsx')">📊 Excel</button>
+              <button class="btn btn-primary btn-sm" onclick="openModal('payrollModal')">+ Process Payroll</button>
+            </div>
           </div>
           <div class="card-body">
             <table>

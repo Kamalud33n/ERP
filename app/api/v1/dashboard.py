@@ -79,16 +79,44 @@ def dashboard(db: Session = Depends(get_db), current_user: User = Depends(get_cu
     # ── Employee Dashboard ─────────────────────────────
     elif current_user.role == "employee":
         try:
+            from app.models.finance import Expense
+            from app.models.procurement import PurchaseRequest
+            from app.models.hr import Contract
+            from datetime import date
+
             employee        = get_employee_by_user_id(db, current_user.id)
             my_leaves       = db.query(Leave).filter(Leave.employee_id == employee.id).all()
             my_attendance   = db.query(Attendance).filter(Attendance.employee_id == employee.id).all()
             my_payrolls     = db.query(Payroll).filter(Payroll.employee_id == employee.id).all()
+            my_expenses     = db.query(Expense).filter(Expense.submitted_by == current_user.id).all()
+            my_prs          = db.query(PurchaseRequest).filter(PurchaseRequest.requested_by == current_user.id).all()
+
             pending_leaves  = sum(1 for l in my_leaves if l.status == "pending")
             approved_leaves = sum(1 for l in my_leaves if l.status == "approved")
             present_days    = sum(1 for a in my_attendance if a.status == "present")
-            last_payroll    = db.query(Payroll).filter(
+
+            # Present today check
+            today_attendance = db.query(Attendance).filter(
+                Attendance.employee_id == employee.id,
+                Attendance.date == date.today()
+            ).first()
+            present_today = today_attendance.status if today_attendance else "not_marked"
+
+            # Pending requests across leave, expense, PR
+            pending_expenses = sum(1 for e in my_expenses if e.status == "pending")
+            pending_prs      = sum(1 for p in my_prs if p.status not in ("final_approved", "rejected"))
+            total_pending_requests = pending_leaves + pending_expenses + pending_prs
+
+            last_payroll = db.query(Payroll).filter(
                 Payroll.employee_id == employee.id
             ).order_by(Payroll.id.desc()).first()
+
+            # Contract status
+            active_contract = db.query(Contract).filter(
+                Contract.employee_id == employee.id,
+                Contract.status == "active"
+            ).order_by(Contract.id.desc()).first()
+            contract_status = active_contract.status if active_contract else "no_contract"
 
             return {
                 "role":             "employee",
@@ -99,8 +127,12 @@ def dashboard(db: Session = Depends(get_db), current_user: User = Depends(get_cu
                 "pending_leaves":   pending_leaves,
                 "approved_leaves":  approved_leaves,
                 "present_days":     present_days,
+                "present_today":    present_today,
+                "pending_requests": total_pending_requests,
                 "total_payrolls":   len(my_payrolls),
                 "last_net_salary":  round(last_payroll.net_salary, 2) if last_payroll else 0.0,
+                "last_payroll_month": last_payroll.month if last_payroll else "-",
+                "contract_status":  contract_status,
             }
         except:
             return {

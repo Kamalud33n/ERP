@@ -8,10 +8,10 @@ class Item(Base):
     __tablename__ = "items"
 
     id            = Column(Integer, primary_key=True, index=True)
-    name          = Column(String, nullable=False)
-    sku           = Column(String, unique=True, nullable=False)
-    category      = Column(String, nullable=False)
-    unit          = Column(String, nullable=False)  # pcs, kg, ltr, box...
+    name          = Column(String(200), nullable=False)
+    sku           = Column(String(100), unique=True, nullable=False)
+    category      = Column(String(100), nullable=False)
+    unit          = Column(String(20), nullable=False)  # pcs, kg, ltr, box...
     description   = Column(Text, nullable=True)
     current_stock = Column(Float, default=0.0)
     min_stock     = Column(Float, default=0.0)     # low stock alert threshold
@@ -28,9 +28,9 @@ class StockMovement(Base):
 
     id          = Column(Integer, primary_key=True, index=True)
     item_id     = Column(Integer, ForeignKey("items.id"), nullable=False)
-    type        = Column(String, nullable=False)   # in | out | adjustment
+    type        = Column(String(20), nullable=False)   # in | out | adjustment
     quantity    = Column(Float, nullable=False)
-    reference   = Column(String, nullable=True)    # PO number, manual, etc
+    reference   = Column(String(100), nullable=True)    # PO number, manual, etc
     note        = Column(Text, nullable=True)
     done_by     = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at  = Column(DateTime, default=datetime.utcnow)

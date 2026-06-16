@@ -303,3 +303,58 @@ def delete_document(db: Session, doc_id: int):
     db.delete(doc)
     db.commit()
     return {"message": "Document deleted"}
+
+
+# ── Employee Self Check In/Out ──────────────────────────
+from datetime import date as date_type
+
+def employee_check_in(db: Session, employee_id: int) -> Attendance:
+    today = date_type.today()
+    existing = db.query(Attendance).filter(
+        Attendance.employee_id == employee_id,
+        Attendance.date == today
+    ).first()
+
+    if existing:
+        if existing.check_in:
+            raise HTTPException(status_code=400, detail="Already checked in today")
+        existing.check_in = datetime.utcnow()
+        existing.status   = "present"
+        db.commit()
+        db.refresh(existing)
+        return existing
+
+    attendance = Attendance(
+        employee_id = employee_id,
+        date        = today,
+        check_in    = datetime.utcnow(),
+        status      = "present"
+    )
+    db.add(attendance)
+    db.commit()
+    db.refresh(attendance)
+    return attendance
+
+def employee_check_out(db: Session, employee_id: int) -> Attendance:
+    today = date_type.today()
+    existing = db.query(Attendance).filter(
+        Attendance.employee_id == employee_id,
+        Attendance.date == today
+    ).first()
+
+    if not existing or not existing.check_in:
+        raise HTTPException(status_code=400, detail="Please check in first")
+    if existing.check_out:
+        raise HTTPException(status_code=400, detail="Already checked out today")
+
+    existing.check_out = datetime.utcnow()
+    db.commit()
+    db.refresh(existing)
+    return existing
+
+def get_today_attendance(db: Session, employee_id: int):
+    today = date_type.today()
+    return db.query(Attendance).filter(
+        Attendance.employee_id == employee_id,
+        Attendance.date == today
+    ).first()

@@ -184,3 +184,93 @@ def export_pl_pdf(pl_data: dict) -> io.BytesIO:
         "Result": "Profitable" if pl_data["is_profitable"] else "Loss Making"
     }
     return build_pdf_report("Profit & Loss Report", f"Period: {pl_data['period']}", headers, rows, summary)
+
+
+# ── Single Payslip PDF ─────────────────────────────────
+def export_single_payslip_pdf(payroll, employee) -> io.BytesIO:
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4,
+        rightMargin=2*cm, leftMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm)
+    styles = getSampleStyleSheet()
+
+    title_style = ParagraphStyle('T', parent=styles['Title'], fontSize=22,
+        textColor=colors.HexColor('#1e293b'), alignment=TA_CENTER)
+    sub_style   = ParagraphStyle('S', parent=styles['Normal'], fontSize=11,
+        textColor=colors.HexColor('#64748b'), alignment=TA_CENTER, spaceAfter=6)
+    label_style = ParagraphStyle('L', parent=styles['Normal'], fontSize=10,
+        textColor=colors.HexColor('#374151'), leading=16)
+
+    story = []
+    story.append(Paragraph("⚡ ERP System", title_style))
+    story.append(Paragraph("PAYSLIP", ParagraphStyle('PS', parent=styles['Title'], fontSize=16,
+        textColor=colors.HexColor('#2563eb'), alignment=TA_CENTER, spaceAfter=4)))
+    story.append(Paragraph(f"Month: {payroll.month}", sub_style))
+    story.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor('#2563eb')))
+    story.append(Spacer(1, 0.4*cm))
+
+    # Employee Info
+    emp_data = [
+        ["Employee Name", f"{employee.first_name} {employee.last_name}"],
+        ["Department",    employee.department or "-"],
+        ["Designation",   employee.designation or "-"],
+        ["Payroll ID",    f"#{payroll.id}"],
+        ["Month",         payroll.month],
+        ["Status",        payroll.status.upper()],
+    ]
+    emp_table = Table(emp_data, colWidths=[6*cm, 10*cm])
+    emp_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (0,-1), colors.HexColor('#f1f5f9')),
+        ('FONTNAME',   (0,0), (0,-1), 'Helvetica-Bold'),
+        ('FONTSIZE',   (0,0), (-1,-1), 10),
+        ('GRID',       (0,0), (-1,-1), 0.5, colors.HexColor('#e2e8f0')),
+        ('PADDING',    (0,0), (-1,-1), 8),
+    ]))
+    story.append(emp_table)
+    story.append(Spacer(1, 0.4*cm))
+
+    # Salary Breakdown
+    story.append(Paragraph("Salary Breakdown", ParagraphStyle('SB', parent=styles['Heading2'],
+        fontSize=13, textColor=colors.HexColor('#1e293b'), spaceBefore=10, spaceAfter=8)))
+
+    sal_data = [
+        ["Description", "Amount"],
+        ["Basic Salary",     f"{payroll.basic_salary:.2f}"],
+        ["Allowances",       f"+ {payroll.allowances:.2f}"],
+        ["Deductions",       f"- {payroll.deductions:.2f}"],
+    ]
+    sal_table = Table(sal_data, colWidths=[10*cm, 6*cm])
+    sal_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#2563eb')),
+        ('TEXTCOLOR',  (0,0), (-1,0), colors.white),
+        ('FONTNAME',   (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE',   (0,0), (-1,-1), 10),
+        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#f8fafc')]),
+        ('GRID',       (0,0), (-1,-1), 0.5, colors.HexColor('#e2e8f0')),
+        ('PADDING',    (0,0), (-1,-1), 8),
+        ('ALIGN',      (1,0), (1,-1), 'RIGHT'),
+    ]))
+    story.append(sal_table)
+    story.append(Spacer(1, 0.2*cm))
+
+    # Net Salary
+    net_data = [["NET SALARY", f"{payroll.net_salary:.2f}"]]
+    net_table = Table(net_data, colWidths=[10*cm, 6*cm])
+    net_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#16a34a')),
+        ('TEXTCOLOR',  (0,0), (-1,-1), colors.white),
+        ('FONTNAME',   (0,0), (-1,-1), 'Helvetica-Bold'),
+        ('FONTSIZE',   (0,0), (-1,-1), 13),
+        ('PADDING',    (0,0), (-1,-1), 10),
+        ('ALIGN',      (1,0), (1,-1), 'RIGHT'),
+    ]))
+    story.append(net_table)
+
+    story.append(Spacer(1, 1*cm))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor('#e2e8f0')))
+    story.append(Paragraph("This is a computer generated payslip — no signature required.",
+        ParagraphStyle('F', parent=styles['Normal'], fontSize=8,
+        textColor=colors.HexColor('#94a3b8'), alignment=TA_CENTER, spaceBefore=6)))
+
+    doc.build(story)
+    buffer.seek(0)
+    return buffer

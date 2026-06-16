@@ -74,14 +74,17 @@
         <div class="card">
           <div class="card-header">
             <h3>🏷️ All Assets</h3>
-            <button class="btn btn-primary btn-sm" onclick="openModal('addAssetModal')">+ Add Asset</button>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-sm" style="background:#dcfce7;color:#16a34a" onclick="downloadFile('/asset/export/excel','asset_report.xlsx')">📊 Excel</button>
+              <button class="btn btn-primary btn-sm" onclick="openModal('addAssetModal')">+ Add Asset</button>
+            </div>
           </div>
           <div class="card-body">
             <table>
               <thead>
-                <tr><th>Code</th><th>Name</th><th>Category</th><th>Location</th><th>Dept</th><th>Purchase Price</th><th>Current Value</th><th>Status</th><th>Actions</th></tr>
+                <tr><th>Code</th><th>Name</th><th>Category</th><th>Location</th><th>Dept</th><th>Purchase Price</th><th>Current Value</th><th>Status</th><th>Assigned To</th><th>Actions</th></tr>
               </thead>
-              <tbody id="assetTable"><tr><td colspan="9" class="loading">Loading...</td></tr></tbody>
+              <tbody id="assetTable"><tr><td colspan="10" class="loading">Loading...</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -131,6 +134,9 @@
     <div class="form-group"><label>Purchase Price</label><input type="number" id="assetPrice" placeholder="5000"/></div>
     <div class="form-group"><label>Depreciation Rate (% per year)</label><input type="number" id="assetDepRate" placeholder="20"/></div>
     <div class="form-group"><label>Description</label><input type="text" id="assetDesc" placeholder="Optional"/></div>
+    <div class="form-group"><label>Assign To Employee (Optional)</label>
+      <select id="assetAssignedTo"><option value="">Unassigned</option></select>
+    </div>
     <div class="modal-footer">
       <button class="btn btn-primary" onclick="addAsset()">Save</button>
       <button class="btn" style="background:#e2e8f0" onclick="closeModal('addAssetModal')">Cancel</button>
@@ -156,6 +162,9 @@
       </select>
     </div>
     <div class="form-group"><label>Depreciation Rate %</label><input type="number" id="editAssetDepRate"/></div>
+    <div class="form-group"><label>Assign To Employee</label>
+      <select id="editAssetAssignedTo"><option value="">Unassigned</option></select>
+    </div>
     <div class="modal-footer">
       <button class="btn btn-primary" onclick="updateAsset()">Update</button>
       <button class="btn" style="background:#e2e8f0" onclick="closeModal('editAssetModal')">Cancel</button>
@@ -248,6 +257,27 @@
   function openModal(id)  { document.getElementById(id).classList.add("open"); }
   function closeModal(id) { document.getElementById(id).classList.remove("open"); }
   function showErr(id, msg) { const e = document.getElementById(id); e.textContent = msg; e.style.display = "block"; }
+
+  async function downloadFile(endpoint, filename) {
+    try {
+      const res = await fetch(`/api/v1${endpoint}`, {
+        headers: { "Authorization": `Bearer ${getToken()}` }
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: "Download failed" }));
+        throw new Error(err.detail || "Download failed");
+      }
+      const blob = await res.blob();
+      const url  = window.URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) { alert(e.message); }
+  }
   function destroyChart(i) { if (i) i.destroy(); }
 
   // ── Dashboard ────────────────────────────────────────
@@ -332,17 +362,35 @@
   }
 
   // ── Assets ───────────────────────────────────────────
+  let employeeListCache = [];
+
+  async function loadEmployeeOptions() {
+    if (employeeListCache.length) return employeeListCache;
+    try {
+      employeeListCache = await api("GET", "/employee/");
+    } catch(e) { employeeListCache = []; }
+    return employeeListCache;
+  }
+
   async function loadAssets() {
     const list = await api("GET", "/asset/");
     const tb = document.getElementById("assetTable");
+    const employees = await loadEmployeeOptions();
 
     // Populate asset dropdown
     const sel = document.getElementById("maintAssetId");
     sel.innerHTML = `<option value="">Select Asset</option>` + list.map(a=>`<option value="${a.id}">${a.asset_code} - ${a.name}</option>`).join("");
 
-    if (!list.length) { tb.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#64748b">No assets</td></tr>`; return; }
+    // Populate employee dropdowns for assignment
+    const empOptions = `<option value="">Unassigned</option>` + employees.map(e=>`<option value="${e.id}">${e.first_name} ${e.last_name} (${e.department||'-'})</option>`).join("");
+    document.getElementById("assetAssignedTo").innerHTML     = empOptions;
+    document.getElementById("editAssetAssignedTo").innerHTML = empOptions;
+
+    if (!list.length) { tb.innerHTML = `<tr><td colspan="10" style="text-align:center;color:#64748b">No assets</td></tr>`; return; }
 
     const statusColors = { active:"approved", under_repair:"pending", disposed:"rejected", lost:"rejected" };
+    const empMap = {};
+    employees.forEach(e => empMap[e.id] = `${e.first_name} ${e.last_name}`);
 
     tb.innerHTML = list.map(a => `
       <tr>
@@ -354,8 +402,9 @@
         <td>${a.purchase_price}</td>
         <td>${a.current_value}</td>
         <td><span class="status ${statusColors[a.status]||'pending'}">${a.status.replace("_"," ")}</span></td>
+        <td>${a.assigned_to ? (empMap[a.assigned_to] || `#${a.assigned_to}`) : '<span style="color:#94a3b8">Unassigned</span>'}</td>
         <td>
-          <button class="btn btn-warning btn-sm" onclick="openEditAsset(${a.id},'${a.name}','${a.location||''}','${a.department||''}','${a.status}',${a.depreciation_rate})">✏️</button>
+          <button class="btn btn-warning btn-sm" onclick="openEditAsset(${a.id},'${a.name}','${a.location||''}','${a.department||''}','${a.status}',${a.depreciation_rate},${a.assigned_to||'null'})">✏️</button>
           <button class="btn btn-primary btn-sm" onclick="showQR('${a.asset_code}','${a.name}','${a.category}')">📱 QR</button>
           <button class="btn btn-success btn-sm" onclick="showDepreciation(${a.id})">📉</button>
         </td>
@@ -364,6 +413,7 @@
 
   async function addAsset() {
     try {
+      const assignedVal = document.getElementById("assetAssignedTo").value;
       await api("POST", "/asset/", {
         name:             document.getElementById("assetName").value,
         category:         document.getElementById("assetCat").value,
@@ -373,31 +423,35 @@
         purchase_date:    document.getElementById("assetPurchaseDate").value||null,
         purchase_price:   parseFloat(document.getElementById("assetPrice").value||0),
         depreciation_rate:parseFloat(document.getElementById("assetDepRate").value||0),
-        description:      document.getElementById("assetDesc").value||null
+        description:      document.getElementById("assetDesc").value||null,
+        assigned_to:      assignedVal ? parseInt(assignedVal) : null
       });
       closeModal("addAssetModal"); loadAssets();
     } catch(e) { showErr("assetError", e.message); }
   }
 
-  function openEditAsset(id, name, location, dept, status, depRate) {
+  function openEditAsset(id, name, location, dept, status, depRate, assignedTo) {
     document.getElementById("editAssetId").value       = id;
     document.getElementById("editAssetName").value     = name;
     document.getElementById("editAssetLocation").value = location;
     document.getElementById("editAssetDept").value     = dept;
     document.getElementById("editAssetStatus").value   = status;
     document.getElementById("editAssetDepRate").value  = depRate;
+    document.getElementById("editAssetAssignedTo").value = assignedTo || "";
     openModal("editAssetModal");
   }
 
   async function updateAsset() {
     const id = document.getElementById("editAssetId").value;
+    const assignedVal = document.getElementById("editAssetAssignedTo").value;
     try {
       await api("PUT", `/asset/${id}`, {
         name:             document.getElementById("editAssetName").value,
         location:         document.getElementById("editAssetLocation").value||null,
         department:       document.getElementById("editAssetDept").value||null,
         status:           document.getElementById("editAssetStatus").value,
-        depreciation_rate:parseFloat(document.getElementById("editAssetDepRate").value)
+        depreciation_rate:parseFloat(document.getElementById("editAssetDepRate").value),
+        assigned_to:      assignedVal ? parseInt(assignedVal) : null
       });
       closeModal("editAssetModal"); loadAssets();
     } catch(e) { showErr("editAssetError", e.message); }

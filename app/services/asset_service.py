@@ -33,6 +33,9 @@ def create_asset(db: Session, data: AssetCreate, created_by: int) -> Asset:
 def get_all_assets(db: Session):
     return db.query(Asset).all()
 
+def get_assets_by_employee(db: Session, employee_id: int):
+    return db.query(Asset).filter(Asset.assigned_to == employee_id).all()
+
 def get_asset_by_id(db: Session, asset_id: int) -> Asset:
     asset = db.query(Asset).filter(Asset.id == asset_id).first()
     if not asset:

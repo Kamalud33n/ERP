@@ -7,13 +7,13 @@ class Expense(Base):
     __tablename__ = "expenses"
 
     id          = Column(Integer, primary_key=True, index=True)
-    title       = Column(String, nullable=False)
+    title       = Column(String(200), nullable=False)
     amount      = Column(Float, nullable=False)
-    category    = Column(String, nullable=False)  # travel | office | software | utilities | other
-    department  = Column(String, nullable=False)
+    category    = Column(String(50), nullable=False)  # travel | office | software | utilities | other
+    department  = Column(String(100), nullable=False)
     date        = Column(Date, nullable=False)
     description = Column(Text, nullable=True)
-    status      = Column(String, default="pending")  # pending | approved | rejected
+    status      = Column(String(20), default="pending")  # pending | approved | rejected
     submitted_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     approved_by  = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at   = Column(DateTime, default=datetime.utcnow)
@@ -23,11 +23,11 @@ class Budget(Base):
     __tablename__ = "budgets"
 
     id          = Column(Integer, primary_key=True, index=True)
-    department  = Column(String, nullable=False)
-    category    = Column(String, nullable=False)
+    department  = Column(String(100), nullable=False)
+    category    = Column(String(100), nullable=False)
     amount      = Column(Float, nullable=False)
     spent       = Column(Float, default=0.0)
-    month       = Column(String, nullable=False)  # 2024-06
+    month       = Column(String(20), nullable=False)  # 2024-06
     created_by  = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at  = Column(DateTime, default=datetime.utcnow)
 
@@ -37,12 +37,12 @@ class GeneralLedger(Base):
 
     id           = Column(Integer, primary_key=True, index=True)
     date         = Column(Date, nullable=False)
-    description  = Column(String, nullable=False)
+    description  = Column(String(255), nullable=False)
     debit        = Column(Float, default=0.0)
     credit       = Column(Float, default=0.0)
     balance      = Column(Float, default=0.0)
-    account_type = Column(String, nullable=False)  # asset | liability | income | expense
-    reference    = Column(String, nullable=True)
+    account_type = Column(String(50), nullable=False)  # asset | liability | income | expense
+    reference    = Column(String(100), nullable=True)
     created_by   = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at   = Column(DateTime, default=datetime.utcnow)
 
@@ -51,11 +51,11 @@ class JournalEntry(Base):
     __tablename__ = "journal_entries"
 
     id           = Column(Integer, primary_key=True, index=True)
-    entry_number = Column(String, unique=True, nullable=False)  # JE-2024-0001
+    entry_number = Column(String(50), unique=True, nullable=False)  # JE-2024-0001
     date         = Column(Date, nullable=False)
-    description  = Column(String, nullable=False)
-    reference    = Column(String, nullable=True)
-    status       = Column(String, default="draft")  # draft | posted | reversed
+    description  = Column(String(255), nullable=False)
+    reference    = Column(String(100), nullable=True)
+    status       = Column(String(20), default="draft")  # draft | posted | reversed
     created_by   = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at   = Column(DateTime, default=datetime.utcnow)
 
@@ -67,8 +67,8 @@ class JournalLine(Base):
 
     id           = Column(Integer, primary_key=True, index=True)
     entry_id     = Column(Integer, ForeignKey("journal_entries.id"), nullable=False)
-    account_type = Column(String, nullable=False)  # asset | liability | income | expense
-    description  = Column(String, nullable=True)
+    account_type = Column(String(50), nullable=False)  # asset | liability | income | expense
+    description  = Column(String(255), nullable=True)
     debit        = Column(Float, default=0.0)
     credit       = Column(Float, default=0.0)
 

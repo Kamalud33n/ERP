@@ -31,6 +31,30 @@ function statusBadge(status) {
   return `<span class="status ${status}">${status}</span>`;
 }
 
+// ── File Download Helper (with auth token) ────────────
+async function downloadFile(endpoint, filename) {
+  try {
+    const res = await fetch(`/api/v1${endpoint}`, {
+      headers: { "Authorization": `Bearer ${getToken()}` }
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: "Download failed" }));
+      throw new Error(err.detail || "Download failed");
+    }
+    const blob = await res.blob();
+    const url  = window.URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href     = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
 // ── Init ──────────────────────────────────────────────
 function initPage(role, titles) {
   requireAuth();

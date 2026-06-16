@@ -101,7 +101,11 @@
         <div class="card">
           <div class="card-header">
             <h3>🧾 Expenses</h3>
-            <button class="btn btn-primary btn-sm" onclick="openModal('expenseModal')">+ Add Expense</button>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-sm" style="background:#fee2e2;color:#dc2626" onclick="downloadFile('/finance/export/expenses/pdf','expense_report.pdf')">📄 PDF</button>
+              <button class="btn btn-sm" style="background:#dcfce7;color:#16a34a" onclick="downloadFile('/finance/export/expenses/excel','expense_report.xlsx')">📊 Excel</button>
+              <button class="btn btn-primary btn-sm" onclick="openModal('expenseModal')">+ Add Expense</button>
+            </div>
           </div>
           <div class="card-body">
             <table>
@@ -168,6 +172,7 @@
             <div style="display:flex;gap:8px;align-items:center">
               <input type="month" id="plMonth" style="padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px"/>
               <button class="btn btn-primary btn-sm" onclick="loadPL()">Generate</button>
+              <button class="btn btn-sm" style="background:#fee2e2;color:#dc2626" onclick="downloadPL()">📄 PDF</button>
             </div>
           </div>
           <div class="card-body" id="plBody">
@@ -344,6 +349,33 @@
   function openModal(id)  { document.getElementById(id).classList.add("open"); }
   function closeModal(id) { document.getElementById(id).classList.remove("open"); }
   function showErr(id, msg) { const e = document.getElementById(id); e.textContent = msg; e.style.display = "block"; }
+
+  async function downloadFile(endpoint, filename) {
+    try {
+      const res = await fetch(`/api/v1${endpoint}`, {
+        headers: { "Authorization": `Bearer ${getToken()}` }
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: "Download failed" }));
+        throw new Error(err.detail || "Download failed");
+      }
+      const blob = await res.blob();
+      const url  = window.URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) { alert(e.message); }
+  }
+
+  function downloadPL() {
+    const month = document.getElementById("plMonth").value;
+    const endpoint = month ? `/finance/export/pl/pdf?month=${month}` : `/finance/export/pl/pdf`;
+    downloadFile(endpoint, "profit_loss_report.pdf");
+  }
   function destroyChart(i) { if (i) i.destroy(); }
 
   async function loadDashboard() {

@@ -50,3 +50,15 @@ def item_movements(item_id: int, db: Session = Depends(get_db), current_user=Dep
 @router.get("/summary")
 def inventory_summary(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     return get_inventory_summary(db)
+
+
+# ── Export Reports ─────────────────────────────────────
+from fastapi.responses import StreamingResponse
+from app.services.export_service import export_inventory_excel
+
+@router.get("/export/excel")
+def export_inventory_excel_route(db: Session = Depends(get_db), current_user=Depends(get_hr)):
+    items = get_all_items(db)
+    buffer = export_inventory_excel(items)
+    return StreamingResponse(buffer, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=inventory_report.xlsx"})
