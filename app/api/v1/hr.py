@@ -47,7 +47,7 @@ def my_leaves(db: Session = Depends(get_db), current_user=Depends(get_current_us
 
 @router.put("/leave/{leave_id}", response_model=LeaveOut)
 def update_leave(leave_id: int, data: LeaveUpdate, db: Session = Depends(get_db), current_user=Depends(get_hr)):
-    return update_leave_status(db, leave_id, data)
+    return update_leave_status(db, leave_id, data, current_user)
 
 
 # ── Attendance ─────────────────────────────────────────

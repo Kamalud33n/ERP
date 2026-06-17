@@ -151,3 +151,31 @@ class JournalEntryOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ── Chart of Accounts ──────────────────────────────────
+class COACreate(BaseModel):
+    account_code: str
+    account_name: str
+    account_type: str  # asset | liability | equity | income | expense
+    parent_id:    Optional[int] = None
+    description:  Optional[str] = None
+
+class COAUpdate(BaseModel):
+    account_name: Optional[str] = None
+    description:  Optional[str] = None
+    is_active:    Optional[bool] = None
+
+class COAOut(BaseModel):
+    id:           int
+    account_code: str
+    account_name: str
+    account_type: str
+    parent_id:    Optional[int]
+    description:  Optional[str]
+    is_active:    bool
+    created_by:   int
+    created_at:   datetime
+
+    class Config:
+        from_attributes = True

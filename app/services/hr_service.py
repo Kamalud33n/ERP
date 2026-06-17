@@ -30,7 +30,7 @@ def update_leave_status(db: Session, leave_id: int, data: LeaveUpdate, done_by_u
     if not leave:
         raise HTTPException(status_code=404, detail="Leave not found")
     leave.status      = data.status
-    leave.approved_by = data.approved_by
+    leave.approved_by = done_by_user.id  # auto set from logged in user
 
     # Activity log
     log = ActivityLog(
@@ -358,3 +358,41 @@ def get_today_attendance(db: Session, employee_id: int):
         Attendance.employee_id == employee_id,
         Attendance.date == today
     ).first()
+
+
+# ── Leave Balance ──────────────────────────────────────
+ANNUAL_LEAVE_QUOTA = 21  # days per year (configurable)
+
+def get_leave_balance(db: Session, employee_id: int) -> dict:
+    from datetime import date
+    current_year = date.today().year
+
+    # Get approved leaves this year
+    approved_leaves = db.query(Leave).filter(
+        Leave.employee_id == employee_id,
+        Leave.status      == "approved",
+    ).all()
+
+    # Filter current year
+    used_days = sum(
+        l.days for l in approved_leaves
+        if l.start_date and l.start_date.year == current_year
+    )
+
+    pending_days = sum(
+        l.days for l in db.query(Leave).filter(
+            Leave.employee_id == employee_id,
+            Leave.status      == "pending"
+        ).all()
+        if l.start_date and l.start_date.year == current_year
+    )
+
+    remaining = max(0, ANNUAL_LEAVE_QUOTA - used_days)
+
+    return {
+        "annual_quota":  ANNUAL_LEAVE_QUOTA,
+        "used_days":     used_days,
+        "pending_days":  pending_days,
+        "remaining":     remaining,
+        "year":          current_year
+    }

@@ -11,7 +11,7 @@ class LeaveCreate(BaseModel):
 
 class LeaveUpdate(BaseModel):
     status:      str  # approved | rejected
-    approved_by: int
+    approved_by: Optional[int] = None
 
 class LeaveOut(BaseModel):
     id:          int

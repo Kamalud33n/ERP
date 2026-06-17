@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Date, Float, ForeignKey, DateTime, Text
+from sqlalchemy import Column, Integer, String, Date, Float, ForeignKey, DateTime, Text, Boolean
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.core.database import Base
@@ -73,3 +73,17 @@ class JournalLine(Base):
     credit       = Column(Float, default=0.0)
 
     entry = relationship("JournalEntry", back_populates="lines")
+
+
+class ChartOfAccount(Base):
+    __tablename__ = "chart_of_accounts"
+
+    id           = Column(Integer, primary_key=True, index=True)
+    account_code = Column(String(20), unique=True, nullable=False)  # 1001, 2001, etc
+    account_name = Column(String(200), nullable=False)
+    account_type = Column(String(50), nullable=False)  # asset | liability | equity | income | expense
+    parent_id    = Column(Integer, ForeignKey("chart_of_accounts.id"), nullable=True)
+    description  = Column(Text, nullable=True)
+    is_active    = Column(Boolean, default=True)
+    created_by   = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at   = Column(DateTime, default=datetime.utcnow)

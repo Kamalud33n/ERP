@@ -49,10 +49,12 @@
       <button class="menu-item" onclick="showSection('budgets', this)"><span class="icon">📈</span> Budgets</button>
       <button class="menu-item" onclick="showSection('gl', this)"><span class="icon">📒</span> General Ledger</button>
       <button class="menu-item" onclick="showSection('journal', this)"><span class="icon">📝</span> Journal Entries</button>
+      <button class="menu-item" onclick="showSection('coa', this)"><span class="icon">🗂️</span> Chart of Accounts</button>
       <div class="menu-section">Reports</div>
       <button class="menu-item" onclick="showSection('pl', this)"><span class="icon">💹</span> P&L Report</button>
       <button class="menu-item" onclick="showSection('cashflow', this)"><span class="icon">💸</span> Cash Flow</button>
       <button class="menu-item" onclick="showSection('analysis', this)"><span class="icon">🔍</span> Expense Analysis</button>
+      <button class="menu-item" onclick="showSection('balancesheet', this)"><span class="icon">⚖️</span> Balance Sheet</button>
       <div class="menu-section">Procurement</div>
       <button class="menu-item" onclick="window.location.href='/procurement.html'"><span class="icon">📋</span> Procurement</button>
       <div class="menu-section">Operations</div>
@@ -210,6 +212,46 @@
         </div>
       </div>
 
+      <!-- Chart of Accounts -->
+      <div id="sec-coa" class="section">
+        <div class="card">
+          <div class="card-header">
+            <h3>🗂️ Chart of Accounts</h3>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-sm" style="background:#dcfce7;color:#16a34a" onclick="seedCOA()">🌱 Seed Defaults</button>
+              <button class="btn btn-primary btn-sm" onclick="openModal('addCOAModal')">+ Add Account</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+              <button class="btn btn-sm" style="background:#e2e8f0" onclick="filterCOA('all')">All</button>
+              <button class="btn btn-sm" style="background:#dbeafe;color:#1e40af" onclick="filterCOA('asset')">Assets</button>
+              <button class="btn btn-sm" style="background:#fef9c3;color:#92400e" onclick="filterCOA('liability')">Liabilities</button>
+              <button class="btn btn-sm" style="background:#f3e8ff;color:#6b21a8" onclick="filterCOA('equity')">Equity</button>
+              <button class="btn btn-sm" style="background:#dcfce7;color:#166534" onclick="filterCOA('income')">Income</button>
+              <button class="btn btn-sm" style="background:#fee2e2;color:#991b1b" onclick="filterCOA('expense')">Expense</button>
+            </div>
+            <table>
+              <thead><tr><th>Code</th><th>Account Name</th><th>Type</th><th>Description</th><th>Status</th></tr></thead>
+              <tbody id="coaTable"><tr><td colspan="5" class="loading">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Balance Sheet -->
+      <div id="sec-balancesheet" class="section">
+        <div class="card">
+          <div class="card-header">
+            <h3>⚖️ Balance Sheet</h3>
+            <button class="btn btn-primary btn-sm" onclick="loadBalanceSheet()">Generate</button>
+          </div>
+          <div class="card-body" id="bsBody">
+            <div style="text-align:center;color:#64748b;padding:20px">Click Generate to load Balance Sheet</div>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -246,6 +288,30 @@
     <div class="modal-footer">
       <button class="btn btn-primary" onclick="submitJournal()">Post Entry</button>
       <button class="btn" style="background:#e2e8f0" onclick="closeModal('addJournalModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add COA Modal -->
+<div class="modal-overlay" id="addCOAModal">
+  <div class="modal">
+    <h3>Add Account</h3>
+    <div class="alert alert-error" id="coaError"></div>
+    <div class="form-group"><label>Account Code</label><input type="text" id="coaCode" placeholder="1001, 2001, 5001..."/></div>
+    <div class="form-group"><label>Account Name</label><input type="text" id="coaName" placeholder="Cash on Hand"/></div>
+    <div class="form-group"><label>Account Type</label>
+      <select id="coaType">
+        <option value="asset">Asset</option>
+        <option value="liability">Liability</option>
+        <option value="equity">Equity</option>
+        <option value="income">Income</option>
+        <option value="expense">Expense</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Description</label><input type="text" id="coaDesc" placeholder="Optional"/></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="addCOA()">Save</button>
+      <button class="btn" style="background:#e2e8f0" onclick="closeModal('addCOAModal')">Cancel</button>
     </div>
   </div>
 </div>
@@ -323,7 +389,7 @@
   if (getRole() !== "finance" && getRole() !== "admin") redirectByRole(getRole());
   document.getElementById("sidebarName").textContent = getUsername();
 
-  const titles = { dashboard:"Dashboard", expenses:"Expenses", budgets:"Budgets", gl:"General Ledger", journal:"Journal Entries", pl:"P&L Report", cashflow:"Cash Flow", analysis:"Expense Analysis" };
+  const titles = { dashboard:"Dashboard", expenses:"Expenses", budgets:"Budgets", gl:"General Ledger", journal:"Journal Entries", pl:"P&L Report", cashflow:"Cash Flow", analysis:"Expense Analysis", coa:"Chart of Accounts", balancesheet:"Balance Sheet" };
   let expCatInst, expStatusInst, budgetInst;
 
   function showSection(name, el) {
@@ -344,6 +410,8 @@
     else if (name === "pl")        loadPL();
     else if (name === "cashflow")  loadCashFlow();
     else if (name === "analysis")  loadAnalysis();
+    else if (name === "coa")         loadCOA();
+    else if (name === "balancesheet") loadBalanceSheet();
   }
 
   function openModal(id)  { document.getElementById(id).classList.add("open"); }
@@ -722,6 +790,96 @@
           <table><thead><tr><th>Month</th><th>Amount</th></tr></thead><tbody>${monthRows||'<tr><td colspan="2" style="text-align:center;color:#64748b">No data</td></tr>'}</tbody></table>
         </div>
       </div>
+    `;
+  }
+
+  // ── Chart of Accounts ────────────────────────────────
+  let allCOA = [];
+
+  async function loadCOA() {
+    allCOA = await api("GET", "/finance/coa");
+    renderCOA(allCOA);
+  }
+
+  function filterCOA(type) {
+    if (type === "all") renderCOA(allCOA);
+    else renderCOA(allCOA.filter(c => c.account_type === type));
+  }
+
+  const typeColors = { asset:"#1e40af", liability:"#92400e", equity:"#6b21a8", income:"#166534", expense:"#991b1b" };
+  const typeBg     = { asset:"#dbeafe", liability:"#fef9c3", equity:"#f3e8ff", income:"#dcfce7", expense:"#fee2e2" };
+
+  function renderCOA(list) {
+    const tb = document.getElementById("coaTable");
+    if (!list.length) { tb.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#64748b">No accounts — Click "Seed Defaults" to get started!</td></tr>`; return; }
+    tb.innerHTML = list.map(c => `
+      <tr>
+        <td><code style="background:#f1f5f9;padding:2px 8px;border-radius:4px">${c.account_code}</code></td>
+        <td><strong>${c.account_name}</strong></td>
+        <td><span style="background:${typeBg[c.account_type]};color:${typeColors[c.account_type]};padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">${c.account_type.toUpperCase()}</span></td>
+        <td>${c.description||"-"}</td>
+        <td><span class="status ${c.is_active?'approved':'rejected'}">${c.is_active?"Active":"Inactive"}</span></td>
+      </tr>`).join("");
+  }
+
+  async function addCOA() {
+    const errEl = document.getElementById("coaError");
+    errEl.style.display = "none";
+    try {
+      await api("POST", "/finance/coa", {
+        account_code: document.getElementById("coaCode").value,
+        account_name: document.getElementById("coaName").value,
+        account_type: document.getElementById("coaType").value,
+        description:  document.getElementById("coaDesc").value||null
+      });
+      closeModal("addCOAModal");
+      loadCOA();
+    } catch(e) { showErr("coaError", e.message); }
+  }
+
+  async function seedCOA() {
+    if (!confirm("Seed 25 default Chart of Accounts? (Existing accounts won't be duplicated)")) return;
+    const res = await api("POST", "/finance/coa/seed");
+    alert(res.message);
+    loadCOA();
+  }
+
+  // ── Balance Sheet ─────────────────────────────────────
+  async function loadBalanceSheet() {
+    const d = await api("GET", "/finance/reports/balance-sheet");
+    document.getElementById("bsBody").innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-bottom:20px">
+        <div class="stat-card green"><div class="label">Total Assets</div><div class="value">${d.assets.total}</div></div>
+        <div class="stat-card red"><div class="label">Total Liabilities</div><div class="value">${d.liabilities.total}</div></div>
+        <div class="stat-card"><div class="label">Total Equity</div><div class="value">${d.equity.total}</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div>
+          <h4 style="margin-bottom:10px;color:#16a34a">📦 Assets</h4>
+          <table>
+            <thead><tr><th>Account</th><th>Amount</th></tr></thead>
+            <tbody>${d.assets.breakdown.map(a=>`<tr><td>${a.name}</td><td><strong>${a.amount}</strong></td></tr>`).join("")}</tbody>
+            <tfoot><tr style="background:#dcfce7"><td><strong>Total</strong></td><td><strong>${d.assets.total}</strong></td></tr></tfoot>
+          </table>
+        </div>
+        <div>
+          <h4 style="margin-bottom:10px;color:#dc2626">💳 Liabilities & Equity</h4>
+          <table>
+            <thead><tr><th>Account</th><th>Amount</th></tr></thead>
+            <tbody>
+              ${d.liabilities.breakdown.map(l=>`<tr><td>${l.name}</td><td><strong>${l.amount}</strong></td></tr>`).join("")}
+              <tr><td>Net Profit</td><td><strong>${d.equity.net_profit}</strong></td></tr>
+            </tbody>
+            <tfoot><tr style="background:#fee2e2"><td><strong>Total L+E</strong></td><td><strong>${(d.liabilities.total + d.equity.total).toFixed(2)}</strong></td></tr></tfoot>
+          </table>
+        </div>
+      </div>
+      <div style="margin-top:16px;padding:12px;border-radius:10px;background:${d.balance_check?'#dcfce7':'#fee2e2'};text-align:center">
+        <strong style="color:${d.balance_check?'#16a34a':'#dc2626'}">
+          ${d.balance_check ? "✅ Balance Sheet is Balanced (Assets = Liabilities + Equity)" : "⚠️ Balance Sheet is Unbalanced — Check entries!"}
+        </strong>
+      </div>
+      <p style="text-align:right;font-size:11px;color:#94a3b8;margin-top:8px">Generated: ${d.generated_at}</p>
     `;
   }
 
