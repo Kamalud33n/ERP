@@ -179,3 +179,59 @@ class COAOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ── Accounts Payable ───────────────────────────────────
+class VendorBillCreate(BaseModel):
+    vendor_id:   int
+    bill_date:   date
+    due_date:    Optional[date] = None
+    amount:      float
+    description: Optional[str] = None
+
+class VendorBillUpdate(BaseModel):
+    due_date:    Optional[date] = None
+    status:      Optional[str] = None
+    description: Optional[str] = None
+
+class VendorBillOut(BaseModel):
+    id:           int
+    vendor_id:    int
+    bill_number:  str
+    bill_date:    date
+    due_date:     Optional[date]
+    amount:       float
+    paid_amount:  float
+    outstanding:  float
+    description:  Optional[str]
+    status:       str
+    created_by:   int
+    created_at:   datetime
+
+    class Config:
+        from_attributes = True
+
+
+class VendorPaymentCreate(BaseModel):
+    bill_id:        int
+    payment_date:   date
+    amount:         float
+    payment_method: Optional[str] = "bank_transfer"
+    reference:      Optional[str] = None
+    notes:          Optional[str] = None
+
+class VendorPaymentOut(BaseModel):
+    id:             int
+    bill_id:        int
+    vendor_id:      int
+    payment_number: str
+    payment_date:   date
+    amount:         float
+    payment_method: str
+    reference:      Optional[str]
+    notes:          Optional[str]
+    created_by:     int
+    created_at:     datetime
+
+    class Config:
+        from_attributes = True

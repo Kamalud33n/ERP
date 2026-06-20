@@ -87,3 +87,40 @@ class ChartOfAccount(Base):
     is_active    = Column(Boolean, default=True)
     created_by   = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at   = Column(DateTime, default=datetime.utcnow)
+
+
+class VendorBill(Base):
+    __tablename__ = "vendor_bills"
+
+    id            = Column(Integer, primary_key=True, index=True)
+    vendor_id     = Column(Integer, ForeignKey("vendors.id"), nullable=False)
+    bill_number   = Column(String(50), unique=True, nullable=False)  # BILL-2024-0001
+    bill_date     = Column(Date, nullable=False)
+    due_date      = Column(Date, nullable=True)
+    amount        = Column(Float, nullable=False)
+    paid_amount   = Column(Float, default=0.0)
+    outstanding   = Column(Float, nullable=False)  # amount - paid_amount
+    description   = Column(Text, nullable=True)
+    status        = Column(String(20), default="unpaid")  # unpaid | partial | paid | overdue
+    created_by    = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at    = Column(DateTime, default=datetime.utcnow)
+
+    payments = relationship("VendorPayment", back_populates="bill")
+
+
+class VendorPayment(Base):
+    __tablename__ = "vendor_payments"
+
+    id             = Column(Integer, primary_key=True, index=True)
+    bill_id        = Column(Integer, ForeignKey("vendor_bills.id"), nullable=False)
+    vendor_id      = Column(Integer, ForeignKey("vendors.id"), nullable=False)
+    payment_number = Column(String(50), unique=True, nullable=False)  # PAY-2024-0001
+    payment_date   = Column(Date, nullable=False)
+    amount         = Column(Float, nullable=False)
+    payment_method = Column(String(50), default="bank_transfer")  # bank_transfer | cash | cheque
+    reference      = Column(String(100), nullable=True)
+    notes          = Column(Text, nullable=True)
+    created_by     = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at     = Column(DateTime, default=datetime.utcnow)
+
+    bill = relationship("VendorBill", back_populates="payments")

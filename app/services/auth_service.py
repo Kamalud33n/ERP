@@ -12,16 +12,17 @@ def register_user(db: Session, data: RegisterRequest) -> User:
     if existing:
         raise HTTPException(status_code=400, detail="Email or username already exists")
 
-    valid_roles = ["admin", "hr_manager", "finance", "employee"]
-    if data.role not in valid_roles:
-        raise HTTPException(status_code=400, detail=f"Invalid role. Choose from {valid_roles}")
-
-    # Create user
+    # SECURITY FIX: self-registration is always forced to "employee" regardless
+    # of what's submitted. Previously any anonymous request could pass
+    # role="admin" and create a full admin account with no auth check at all.
+    # Elevated roles (admin/hr_manager/finance) must now be granted by an
+    # existing admin via PUT /api/v1/admin/users/{id}, which is already
+    # protected by get_admin.
     user = User(
         email    = data.email,
         username = data.username,
         password = hash_password(data.password),
-        role     = data.role
+        role     = "employee"
     )
     db.add(user)
     db.commit()
@@ -34,7 +35,7 @@ def register_user(db: Session, data: RegisterRequest) -> User:
         last_name   = "",
         phone       = "",
         department  = "Unassigned",
-        designation = data.role.replace("_", " ").title(),
+        designation = "Employee",
         salary      = 0.0,
         join_date   = None
     )

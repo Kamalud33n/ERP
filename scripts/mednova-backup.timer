@@ -1,0 +1,16 @@
+[Unit]
+Description=MedNova ERP Daily Backup
+After=network-online.target
+Wants=network-online.target
+
+[Timer]
+# Run daily at 2 AM
+OnCalendar=daily
+OnCalendar=*-*-* 02:00:00
+Persistent=true
+
+# Run on boot if system was shut down during schedule
+Accuracy=60s
+
+[Install]
+WantedBy=timers.target

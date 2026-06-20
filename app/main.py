@@ -5,7 +5,7 @@ from fastapi.responses import FileResponse
 import os
 
 from app.core.database import engine, Base
-from app.models import user, employee, hr, finance, procurement, inventory, asset
+from app.models import user, employee, hr, finance, procurement, inventory, asset, workflow, workflow_config
 
 from app.api.v1 import (
     auth,
@@ -16,7 +16,12 @@ from app.api.v1 import (
     admin as admin_router,
     procurement as procurement_router,
     inventory as inventory_router,
-    asset as asset_router
+    asset as asset_router,
+    # extra admin endpoints
+    admin_extra as admin_extra_router,
+    workflow as workflow_router,
+    workflow_config as workflow_config_router,
+    workflows as workflows_router  # Phase 2: Advanced workflows
 )
 
 Base.metadata.create_all(bind=engine)
@@ -37,9 +42,22 @@ app.include_router(hr_router.router,          prefix="/api/v1/hr",          tags
 app.include_router(finance_router.router,     prefix="/api/v1/finance",     tags=["Finance"])
 app.include_router(dashboard.router,          prefix="/api/v1/dashboard",   tags=["Dashboard"])
 app.include_router(admin_router.router,       prefix="/api/v1/admin",       tags=["Admin"])
+# include extra admin endpoints (search, reset, invite, audit, import/export)
+app.include_router(admin_extra_router.router, prefix="/api/v1/admin",       tags=["Admin"])
+# workflow engine endpoints
+app.include_router(workflow_router.router,    prefix="/api/v1/workflow",    tags=["Workflow"])
+# workflow configuration (templates/steps)
+app.include_router(workflow_config_router.router, prefix="/api/v1/workflow-config", tags=["Workflow Config"])
+# Phase 2: Advanced approval workflows with triggers & documents
+app.include_router(workflows_router.router,   prefix="/api/v1/workflows",   tags=["Advanced Workflows"])
 app.include_router(procurement_router.router, prefix="/api/v1/procurement", tags=["Procurement"])
 app.include_router(inventory_router.router,   prefix="/api/v1/inventory",   tags=["Inventory"])
 app.include_router(asset_router.router,       prefix="/api/v1/asset",       tags=["Asset"])
+
+@app.get("/health")
+@app.get("/api/v1/health")
+def health_check():
+    return {"status": "ok"}
 
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
 static_dir = os.path.join(BASE_DIR, "static")
@@ -49,6 +67,9 @@ print(f"Static exists: {os.path.exists(static_dir)}")
 
 if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
+    i18n_dir = os.path.join(static_dir, "i18n")
+    if os.path.exists(i18n_dir):
+        app.mount("/i18n", StaticFiles(directory=i18n_dir), name="i18n")
 
 @app.get("/")
 def serve_login():

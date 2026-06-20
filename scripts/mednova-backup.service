@@ -1,0 +1,30 @@
+[Unit]
+Description=MedNova ERP Backup Service
+After=docker.service postgresql.service
+Requires=docker.service postgresql.service
+
+[Service]
+Type=oneshot
+User=root
+
+# Load environment variables
+EnvironmentFile=/app/.env.backup
+
+# Backup script
+ExecStart=/bin/bash /app/scripts/backup.sh
+
+# Restart on failure
+Restart=on-failure
+RestartSec=300
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mednova-backup
+
+# Timeouts
+TimeoutStartSec=0
+TimeoutStopSec=900
+
+[Install]
+WantedBy=multi-user.target

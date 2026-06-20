@@ -4,8 +4,9 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.models.user import User
 from app.models.employee import Employee
-from app.models.hr import Leave, Attendance, Payroll
+from app.models.hr import Leave, Attendance, Payroll, Contract
 from app.models.finance import Expense, Budget, GeneralLedger
+from app.models.procurement import PurchaseRequest
 from app.services.employee_service import get_employee_by_user_id
 
 router = APIRouter()
@@ -79,9 +80,6 @@ def dashboard(db: Session = Depends(get_db), current_user: User = Depends(get_cu
     # ── Employee Dashboard ─────────────────────────────
     elif current_user.role == "employee":
         try:
-            from app.models.finance import Expense
-            from app.models.procurement import PurchaseRequest
-            from app.models.hr import Contract
             from datetime import date
 
             employee        = get_employee_by_user_id(db, current_user.id)

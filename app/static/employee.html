@@ -3,8 +3,19 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ERP — Employee Dashboard</title>
+  <title>MedNova — Employee Dashboard</title>
   <link rel="stylesheet" href="/static/css/style.css"/>
+  <script src="/static/js/i18n.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="/static/js/navigation.js"></script>
+  <style>
+    /* GA4-like employee tweaks */
+    .stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+    .stat-card{background:#fff;padding:14px;border-radius:10px;box-shadow:0 8px 24px rgba(15,23,42,0.06);border:1px solid #eef2f7}
+    .stat-card .label{font-size:12px;color:#64748b}
+    .stat-card .value{font-size:22px;font-weight:800;color:#0f172a}
+    @media(max-width:900px){.stats-grid{grid-template-columns:1fr}}
+  </style>
 </head>
 <body>
 <div class="layout">
@@ -12,7 +23,7 @@
   <!-- Sidebar -->
   <aside class="sidebar">
     <div class="sidebar-logo">
-      <h2>⚡ ERP System</h2>
+      <h2>🏥 MedNova</h2>
       <p>Employee Portal</p>
     </div>
     <nav class="sidebar-menu">
@@ -59,9 +70,26 @@
 
   <!-- Main -->
   <div class="main-content">
+    <!-- Language Switcher -->
+    <button id="langToggle" onclick="toggleLanguage()" 
+      style="position: fixed; top: 12px; right: 12px; z-index: 1000; background: linear-gradient(135deg, #1a73e8 0%, #0f9d58 100%); color: white; border: none; padding: 8px 14px; border-radius: 20px; cursor: pointer; font-weight: 600; font-size: 13px; transition: all 0.3s ease; box-shadow: 0 2px 8px rgba(0,0,0,0.15);"
+      onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.25)'"
+      onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.15)'">EN</button>
+
     <div class="topbar">
-      <h1 id="pageTitle">Dashboard</h1>
-      <span class="badge">Employee</span>
+      <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">☰</button>
+      <div id="breadcrumb" style="flex:1;margin-left:12px"><span class="breadcrumb-item active">Dashboard</span></div>
+      <div class="search-results-container">
+        <input type="text" id="globalSearch" placeholder="🔍 Search (Ctrl+K)">
+        <div id="searchResults"></div>
+      </div>
+      <button id="favBtn" style="background:none;border:none;font-size:20px;cursor:pointer;margin:0 8px" onclick="document.getElementById('favPanel').style.display=document.getElementById('favPanel').style.display==='none'?'block':'none'">⭐</button>
+      <h1 id="pageTitle" data-i18n="dashboard" style="margin-left:12px">Dashboard</h1>
+      <span class="badge" data-i18n="employee">Employee</span>
+    </div>
+    <div id="favPanel" style="position:fixed;right:12px;top:60px;background:white;border:1px solid #e2e8f0;border-radius:8px;padding:12px;box-shadow:0 10px 30px rgba(0,0,0,0.1);z-index:999;width:200px;display:none;max-height:300px;overflow-y:auto">
+      <h4 style="margin:0 0 10px 0;font-size:13px;color:#0f172a">⭐ My Favorites</h4>
+      <div id="favoritesList"></div>
     </div>
     <div class="page-content">
 

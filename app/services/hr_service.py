@@ -113,6 +113,15 @@ def create_payroll(db: Session, data: PayrollCreate, processed_by_user) -> Payro
     db.add(log)
     db.commit()
     db.refresh(payroll)
+
+    # Auto-post to GL: payroll = salary expense (cash out)
+    from app.services.finance_service import post_gl_entry
+    post_gl_entry(
+        db, entry_date=datetime.utcnow().date(),
+        description=f"Payroll - Employee #{data.employee_id} - {data.month}",
+        account_type="expense", debit=net_salary,
+        reference=f"PAYROLL-{payroll.id}", created_by=processed_by_user.id
+    )
     return payroll
 
 def get_payroll_by_employee(db: Session, employee_id: int):

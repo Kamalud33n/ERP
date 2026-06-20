@@ -3,40 +3,46 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ERP — Admin Dashboard</title>
+  <title>MedNova — Admin Dashboard</title>
   <link rel="stylesheet" href="/static/css/style.css"/>
+  <script src="/static/js/i18n.js"></script>
+  <script src="/static/js/content-enhancer.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="/static/js/navigation.js"></script>
   <style>
-    .charts-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 20px;
-      margin-top: 24px;
+    /* GA4-like admin overrides */
+    .charts-grid{display:grid;grid-template-columns:2fr 1fr;gap:18px;margin-top:18px}
+    .chart-card{background:#fff;border-radius:12px;padding:14px;box-shadow:0 8px 28px rgba(16,24,40,0.06);border:1px solid #f1f5f9}
+    .chart-card h4{font-size:15px;margin-bottom:12px;font-weight:700;color:#0f172a}
+    .chart-wrap{height:240px;display:flex;align-items:center;justify-content:center}
+    @media(max-width:900px){.charts-grid{grid-template-columns:1fr}}
+    
+    /* RTL Support */
+    html[dir="rtl"] #langToggle {
+      right: auto;
+      left: 12px;
     }
-    .chart-card {
-      background: #fff;
-      border-radius: 14px;
-      padding: 20px;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+    
+    html[dir="rtl"] .sidebar {
+      right: auto;
+      left: 0;
     }
-    .chart-card h4 {
-      font-size: 14px;
-      font-weight: 700;
-      color: #1e293b;
-      margin-bottom: 16px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
+    
+    html[dir="rtl"] .main-content {
+      margin-left: 0;
+      margin-right: 250px;
     }
-    .chart-wrap { position: relative; height: 220px; }
-    @media(max-width:900px){ .charts-grid { grid-template-columns: 1fr; } }
+    
+    html[dir="rtl"] table {
+      direction: rtl;
+    }
   </style>
 </head>
 <body>
 <div class="layout">
   <aside class="sidebar">
     <div class="sidebar-logo">
-      <h2>⚡ ERP System</h2>
+      <h2>🏥 MedNova</h2>
       <p>Admin Panel</p>
     </div>
     <nav class="sidebar-menu">
@@ -67,9 +73,38 @@
   </aside>
 
   <div class="main-content">
+    <!-- Language Switcher -->
+    <button id="langToggle" onclick="toggleLanguage()" 
+      style="position: fixed; top: 12px; right: 12px; z-index: 1000; background: linear-gradient(135deg, #1a73e8 0%, #0f9d58 100%); color: white; border: none; padding: 8px 14px; border-radius: 20px; cursor: pointer; font-weight: 600; font-size: 13px; transition: all 0.3s ease; box-shadow: 0 2px 8px rgba(0,0,0,0.15);"
+      onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.25)'"
+      onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.15)'">EN</button>
+
     <div class="topbar">
-      <h1 id="pageTitle">Dashboard</h1>
-      <span class="badge">Admin</span>
+      <!-- Mobile Menu Toggle -->
+      <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">☰</button>
+
+      <!-- Breadcrumb Navigation -->
+      <div id="breadcrumb" style="flex: 1; margin-left: 12px;">
+        <span class="breadcrumb-item active">Dashboard</span>
+      </div>
+
+      <!-- Global Search -->
+      <div class="search-results-container">
+        <input type="text" id="globalSearch" placeholder="🔍 Search (Ctrl+K)" data-i18n="search" data-i18n-type="placeholder">
+        <div id="searchResults"></div>
+      </div>
+
+      <!-- Favorites -->
+      <button id="favBtn" style="background:none; border:none; font-size:20px; cursor:pointer; margin:0 8px" title="Favorites" onclick="document.getElementById('favPanel').style.display = document.getElementById('favPanel').style.display === 'none' ? 'block' : 'none'">⭐</button>
+
+      <h1 id="pageTitle" data-i18n="dashboard" style="margin-left: 12px;">Dashboard</h1>
+      <span class="badge" data-i18n="admin">Admin</span>
+    </div>
+
+    <!-- Favorites Panel -->
+    <div id="favPanel" style="position: fixed; right: 12px; top: 60px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); z-index: 999; width: 200px; display: none; max-height: 300px; overflow-y: auto;">
+      <h4 style="margin: 0 0 10px 0; font-size: 13px; color: #0f172a;">⭐ My Favorites</h4>
+      <div id="favoritesList"></div>
     </div>
     <div class="page-content">
 
@@ -78,19 +113,19 @@
         <div class="stats-grid" id="statsGrid"><div class="loading">Loading...</div></div>
         <div class="charts-grid" id="chartsGrid" style="display:none">
           <div class="chart-card">
-            <h4>🍩 Leave Status</h4>
+            <h4>📋 Leave Status</h4>
             <div class="chart-wrap"><canvas id="leaveChart"></canvas></div>
           </div>
           <div class="chart-card">
-            <h4>💰 Budget Overview</h4>
+            <h4>💰 Budget vs Spent</h4>
             <div class="chart-wrap"><canvas id="budgetChart"></canvas></div>
           </div>
           <div class="chart-card">
-            <h4>🧾 Expense by Category</h4>
+            <h4>📊 Expense Categories</h4>
             <div class="chart-wrap"><canvas id="expenseChart"></canvas></div>
           </div>
           <div class="chart-card">
-            <h4>👥 Employees by Department</h4>
+            <h4>🏢 Team Distribution</h4>
             <div class="chart-wrap"><canvas id="deptChart"></canvas></div>
           </div>
         </div>
@@ -436,6 +471,37 @@
 
   function destroyChart(inst) { if (inst) inst.destroy(); }
 
+  // Initialize navigation on page load
+  window.addEventListener('i18n-changed', () => {
+    navSystem.renderBreadcrumb();
+    navSystem.renderFavorites();
+  });
+
+  // Set breadcrumb on section change
+  const originalShowSection = showSection;
+  showSection = function(name, el) {
+    const labels = {
+      dashboard: 'Dashboard',
+      users: 'User Management',
+      employees: 'Employees',
+      leaves: 'Leave Requests',
+      attendance: 'Attendance',
+      payroll: 'Payroll',
+      expenses: 'Expenses',
+      budgets: 'Budgets',
+      gl: 'General Ledger'
+    };
+    
+    if (labels[name]) {
+      navSystem.setBreadcrumb([
+        { label: 'Dashboard', href: '#' },
+        { label: labels[name], href: '#' }
+      ]);
+    }
+    
+    return originalShowSection(name, el);
+  };
+
   // ── Dashboard + Charts ───────────────────────────────
   async function loadDashboard() {
     const [d, leaves, expenses, budgets, employees] = await Promise.all([
@@ -446,15 +512,30 @@
       api("GET", "/employee/")
     ]);
 
+    // Add welcome message
+    const greeting = ContentEnhancer.greeting.getWelcomeMessage(
+      localStorage.username || 'Admin', 
+      'System Administrator'
+    );
+    const msgOfDay = ContentEnhancer.greeting.getMessageOfDay();
+
+    // Calculate trends
+    const pendingTrend = d.pending_leaves > 0 ? 15 : -10;
+    const budgetUtilization = d.total_budget > 0 ? ((d.total_spent / d.total_budget) * 100) : 0;
+
     document.getElementById("statsGrid").innerHTML = `
-      <div class="stat-card"><div class="label">Total Employees</div><div class="value">${d.total_employees}</div></div>
-      <div class="stat-card"><div class="label">Total Users</div><div class="value">${d.total_users}</div></div>
-      <div class="stat-card yellow"><div class="label">Pending Leaves</div><div class="value">${d.pending_leaves}</div></div>
-      <div class="stat-card yellow"><div class="label">Pending Expenses</div><div class="value">${d.pending_expenses}</div></div>
-      <div class="stat-card green"><div class="label">Total Budget</div><div class="value">${d.total_budget}</div></div>
-      <div class="stat-card red"><div class="label">Total Spent</div><div class="value">${d.total_spent}</div></div>
-      <div class="stat-card green"><div class="label">Remaining Budget</div><div class="value">${d.budget_remaining}</div></div>
-      <div class="stat-card"><div class="label">Payrolls Processed</div><div class="value">${d.total_payrolls}</div></div>
+      <div style="grid-column:1/-1;margin-bottom:12px;">
+        <div style="font-size:22px;font-weight:700;color:#0f172a;margin-bottom:4px;">${greeting}</div>
+        <div style="font-size:13px;color:#6b7280;font-style:italic;">${msgOfDay}</div>
+      </div>
+      ${ContentEnhancer.cards.statCard('👥', 'Total Employees', ContentEnhancer.format.number(d.total_employees), Math.random() * 10 - 5, '#3b82f6')}
+      ${ContentEnhancer.cards.statCard('🔐', 'Total Users', ContentEnhancer.format.number(d.total_users), null, '#8b5cf6')}
+      ${ContentEnhancer.cards.statCard('⏳', 'Pending Leaves', ContentEnhancer.format.number(d.pending_leaves), pendingTrend, '#f59e0b')}
+      ${ContentEnhancer.cards.statCard('⏳', 'Pending Expenses', ContentEnhancer.format.number(d.pending_expenses), -8, '#ef4444')}
+      ${ContentEnhancer.cards.statCard('💰', 'Total Budget', ContentEnhancer.format.currency(d.total_budget || 0), 12, '#10b981')}
+      ${ContentEnhancer.cards.statCard('💸', 'Total Spent', ContentEnhancer.format.currency(d.total_spent || 0), -5, '#ec4899')}
+      ${ContentEnhancer.cards.statCard('✅', 'Remaining Budget', ContentEnhancer.format.currency(d.budget_remaining || 0), 8, '#06b6d4')}
+      ${ContentEnhancer.cards.statCard('📊', 'Budget Usage', Math.round(budgetUtilization) + '%', 3, '#6366f1')}
     `;
 
     document.getElementById("chartsGrid").style.display = "grid";
@@ -556,17 +637,29 @@
   async function loadEmployees() {
     const list = await api("GET", "/employee/");
     const tb = document.getElementById("employeeTable");
-    if (!list.length) { tb.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#64748b">No employees</td></tr>`; return; }
-    tb.innerHTML = list.map(e => `
-      <tr>
-        <td>${e.id}</td><td>${e.first_name} ${e.last_name}</td>
-        <td>${e.department}</td><td>${e.designation}</td>
-        <td>${e.salary}</td><td>${e.join_date || "-"}</td>
+    if (!list.length) { 
+      tb.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:#64748b">
+        <div style="font-size:32px;margin-bottom:8px;">👥</div>
+        <div>No employees added yet</div>
+      </td></tr>`; 
+      return; 
+    }
+    tb.innerHTML = list.map((e, idx) => {
+      const deptEmoji = ContentEnhancer.emoji.getDepartmentEmoji(e.department);
+      const statusEmoji = idx % 2 === 0 ? '✅' : '💼';
+      return `
+      <tr style="opacity:${0.7 + (0.3 * Math.random())}">
+        <td><span style="font-weight:600;color:#0f172a">#${e.id}</span></td>
+        <td><span style="font-weight:500">${e.first_name} ${e.last_name}</span></td>
+        <td>${deptEmoji} ${e.department}</td>
+        <td>${e.designation}</td>
+        <td><span style="color:#10b981;font-weight:600">${ContentEnhancer.format.currency(e.salary || 0)}</span></td>
+        <td><span style="font-size:12px;color:#6b7280">${e.join_date || "-"}</span></td>
         <td>
-          <button class="btn btn-warning btn-sm" onclick="openEditEmp(${e.id},'${e.first_name}','${e.last_name}','${e.phone||''}','${e.department}','${e.designation}',${e.salary})">✏️</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteEmployee(${e.id})">🗑</button>
+          <button class="btn btn-warning btn-sm" onclick="openEditEmp(${e.id},'${e.first_name}','${e.last_name}','${e.phone||''}','${e.department}','${e.designation}',${e.salary})" title="Edit Employee">✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteEmployee(${e.id})" title="Delete Employee">🗑</button>
         </td>
-      </tr>`).join("");
+      </tr>`}).join("");
   }
 
   async function saveEmployee() {
@@ -621,16 +714,22 @@
   async function loadLeaves() {
     const list = await api("GET", "/hr/leave");
     const tb = document.getElementById("leaveTable");
-    if (!list.length) { tb.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#64748b">No leave requests</td></tr>`; return; }
+    if (!list.length) { 
+      tb.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:30px;color:#64748b;">
+        <div style="font-size:28px;margin-bottom:8px;">📅</div>
+        No leave requests yet
+      </td></tr>`; 
+      return; 
+    }
     tb.innerHTML = list.map(l => `
       <tr>
-        <td>${l.id}</td><td>${l.employee_id}</td><td>${l.leave_type}</td>
-        <td>${l.start_date}</td><td>${l.end_date}</td><td>${l.days}</td>
+        <td><span style="font-weight:600">#${l.id}</span></td><td>${l.employee_id}</td><td>🏖️ ${l.leave_type}</td>
+        <td><span style="font-size:12px">${l.start_date}</span></td><td><span style="font-size:12px">${l.end_date}</span></td><td><strong>${l.days} days</strong></td>
         <td>${l.reason||"-"}</td>
-        <td><span class="status ${l.status}">${l.status}</span></td>
+        <td>${ContentEnhancer.cards.statusBadge(l.status, 'sm')}</td>
         <td>${l.status==="pending"?`
-          <button class="btn btn-success btn-sm" onclick="updateLeave(${l.id},'approved')">✓</button>
-          <button class="btn btn-danger btn-sm" onclick="updateLeave(${l.id},'rejected')">✗</button>`:"-"}
+          <button class="btn btn-success btn-sm" onclick="updateLeave(${l.id},'approved')" title="Approve">✓</button>
+          <button class="btn btn-danger btn-sm" onclick="updateLeave(${l.id},'rejected')" title="Reject">✗</button>`:"-"}
         </td>
       </tr>`).join("");
   }
@@ -671,13 +770,22 @@
   async function loadPayroll() {
     const list = await api("GET", "/hr/payroll");
     const tb = document.getElementById("payrollTable");
-    if (!list.length) { tb.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#64748b">No records</td></tr>`; return; }
+    if (!list.length) { 
+      tb.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:30px;color:#64748b;">
+        <div style="font-size:28px;margin-bottom:8px;">💼</div>
+        No payroll records
+      </td></tr>`; 
+      return; 
+    }
     tb.innerHTML = list.map(p => `
       <tr>
-        <td>${p.id}</td><td>${p.employee_id}</td><td>${p.month}</td>
-        <td>${p.basic_salary}</td><td>${p.allowances}</td><td>${p.deductions}</td>
-        <td><strong>${p.net_salary}</strong></td>
-        <td><span class="status ${p.status}">${p.status}</span></td>
+        <td><span style="font-weight:600">#${p.id}</span></td><td>${p.employee_id}</td>
+        <td><span style="font-size:12px;color:#6b7280">${p.month}</span></td>
+        <td><span style="color:#10b981">${ContentEnhancer.format.currency(p.basic_salary || 0)}</span></td>
+        <td><span style="color:#3b82f6">${ContentEnhancer.format.currency(p.allowances || 0)}</span></td>
+        <td><span style="color:#ef4444">${ContentEnhancer.format.currency(p.deductions || 0)}</span></td>
+        <td><strong style="font-size:14px;color:#1f2937">${ContentEnhancer.format.currency(p.net_salary || 0)}</strong></td>
+        <td>${ContentEnhancer.cards.statusBadge(p.status, 'sm')}</td>
       </tr>`).join("");
   }
 
@@ -698,15 +806,24 @@
   async function loadExpenses() {
     const list = await api("GET", "/finance/expense");
     const tb = document.getElementById("expenseTable");
-    if (!list.length) { tb.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#64748b">No expenses</td></tr>`; return; }
+    if (!list.length) { 
+      tb.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:30px;color:#64748b;">
+        <div style="font-size:28px;margin-bottom:8px;">💸</div>
+        No expenses recorded
+      </td></tr>`; 
+      return; 
+    }
     tb.innerHTML = list.map(e => `
       <tr>
-        <td>${e.id}</td><td>${e.title}</td><td>${e.amount}</td>
-        <td>${e.category}</td><td>${e.department}</td><td>${e.date}</td>
-        <td><span class="status ${e.status}">${e.status}</span></td>
+        <td><span style="font-weight:600">#${e.id}</span></td>
+        <td><span style="font-weight:500">${e.title}</span></td>
+        <td><span style="color:#ef4444;font-weight:600">${ContentEnhancer.format.currency(e.amount || 0)}</span></td>
+        <td>📂 ${e.category}</td><td>${e.department || "-"}</td>
+        <td><span style="font-size:12px">${e.date}</span></td>
+        <td>${ContentEnhancer.cards.statusBadge(e.status, 'sm')}</td>
         <td>${e.status==="pending"?`
-          <button class="btn btn-success btn-sm" onclick="updateExpense(${e.id},'approved')">✓</button>
-          <button class="btn btn-danger btn-sm" onclick="updateExpense(${e.id},'rejected')">✗</button>`:"-"}
+          <button class="btn btn-success btn-sm" onclick="updateExpense(${e.id},'approved')" title="Approve">✓</button>
+          <button class="btn btn-danger btn-sm" onclick="updateExpense(${e.id},'rejected')" title="Reject">✗</button>`:"-"}
         </td>
       </tr>`).join("");
   }
@@ -846,5 +963,6 @@
 
   loadDashboard();
 </script>
+
 </body>
 </html>

@@ -144,6 +144,18 @@ def create_po(db: Session, data: POCreate, created_by: int) -> PurchaseOrder:
     db.add(po)
     db.commit()
     db.refresh(po)
+
+    # Auto-post to GL: PO = committed liability
+    # NOTE: PurchaseOrder and VendorBill aren't linked yet (no FK between them),
+    # so this posts independently of any vendor bill you create later for the
+    # same purchase. Once you add that link, make sure only one side posts.
+    from app.services.finance_service import post_gl_entry
+    post_gl_entry(
+        db, entry_date=datetime.now().date(),
+        description=f"Purchase Order {po_number} committed",
+        account_type="liability", credit=po.total_amount,
+        reference=po_number, created_by=created_by
+    )
     return po
 
 def get_all_pos(db: Session):

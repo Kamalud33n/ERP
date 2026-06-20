@@ -28,6 +28,16 @@ def create_asset(db: Session, data: AssetCreate, created_by: int) -> Asset:
     db.add(asset)
     db.commit()
     db.refresh(asset)
+
+    # Auto-post to GL: asset purchase increases fixed assets
+    if data.purchase_price and data.purchase_price > 0:
+        from app.services.finance_service import post_gl_entry
+        post_gl_entry(
+            db, entry_date=data.purchase_date or date.today(),
+            description=f"Asset Purchase - {asset_code} - {data.name}",
+            account_type="asset", debit=data.purchase_price,
+            reference=asset_code, created_by=created_by
+        )
     return asset
 
 def get_all_assets(db: Session):
@@ -65,8 +75,29 @@ def calculate_depreciation(db: Session, asset_id: int) -> dict:
     depreciated = asset.purchase_price * (asset.depreciation_rate / 100) * years
     current_value = max(0, asset.purchase_price - depreciated)
 
+    # Only post the NEW depreciation since the last time this ran, so calling
+    # this repeatedly (e.g. every dashboard load) doesn't double/triple-post
+    # the same depreciation to the ledger.
+    delta = round(asset.current_value - current_value, 2)
+
     asset.current_value = round(current_value, 2)
     db.commit()
+
+    if delta > 0:
+        from app.services.finance_service import post_gl_entry
+        ref = f"DEPR-{asset.asset_code}-{date.today()}"
+        post_gl_entry(
+            db, entry_date=date.today(),
+            description=f"Depreciation Expense - {asset.asset_code}",
+            account_type="expense", debit=delta,
+            reference=ref, created_by=asset.created_by
+        )
+        post_gl_entry(
+            db, entry_date=date.today(),
+            description=f"Accumulated Depreciation - {asset.asset_code}",
+            account_type="asset", credit=delta,
+            reference=ref, created_by=asset.created_by
+        )
 
     return {
         "asset_id":      asset_id,
@@ -74,7 +105,8 @@ def calculate_depreciation(db: Session, asset_id: int) -> dict:
         "purchase_price": asset.purchase_price,
         "years_used":    round(years, 2),
         "depreciated":   round(depreciated, 2),
-        "current_value": round(current_value, 2)
+        "current_value": round(current_value, 2),
+        "gl_posted_this_run": delta if delta > 0 else 0.0
     }
 
 def get_asset_summary(db: Session) -> dict:

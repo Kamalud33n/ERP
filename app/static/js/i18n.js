@@ -1,176 +1,118 @@
-// ── Translation Dictionary ──────────────────────────────
-const translations = {
-  en: {
-    // Common
-    app_name:        "ERP System",
-    app_tagline:     "Enterprise Resource Planning",
-    logout:          "Logout",
-    save:            "Save",
-    cancel:          "Cancel",
-    update:          "Update",
-    delete:          "Delete",
-    edit:            "Edit",
-    add:             "Add",
-    submit:          "Submit",
-    close:           "Close",
-    loading:         "Loading...",
-    actions:         "Actions",
-    status:          "Status",
-    date:            "Date",
-    description:     "Description",
+// ── i18n System - Load from JSON files ─────────────────────
+const i18n = {
+  currentLang: localStorage.getItem("appLang") || "en",
+  translations: {},
 
-    // Login Page
-    sign_in:         "Sign in to your account",
-    email_address:   "Email Address",
-    password:        "Password",
-    sign_in_btn:     "Sign In",
-    no_account:      "Don't have an account?",
-    register_link:   "Register",
-
-    // Register Page
-    create_account:  "Create an account",
-    username:        "Username",
-    role:            "Role",
-    create_account_btn: "Create Account",
-    have_account:    "Already have an account?",
-    sign_in_link:    "Sign In",
-    role_employee:   "Employee",
-    role_hr:         "HR Manager",
-    role_finance:    "Finance",
-    role_admin:      "Admin",
-
-    // Sidebar / Navigation
-    dashboard:       "Dashboard",
-    employees:       "Employees",
-    leave_requests:  "Leave Requests",
-    attendance:      "Attendance",
-    payroll:         "Payroll",
-    contracts:       "Contracts",
-    performance:     "Performance",
-    documents:       "Documents",
-    expenses:        "Expenses",
-    budgets:         "Budgets",
-    general_ledger:  "General Ledger",
-    journal_entries: "Journal Entries",
-    pl_report:       "P&L Report",
-    cash_flow:       "Cash Flow",
-    expense_analysis:"Expense Analysis",
-    procurement:     "Procurement",
-    inventory:       "Inventory",
-    assets:          "Assets",
-    user_management: "User Management",
-    audit_log:       "Audit Log",
+  // Initialize i18n
+  async init() {
+    try {
+      const [en, ar] = await Promise.all([
+        fetch("/i18n/en.json").then(r => r.json()),
+        fetch("/i18n/ar.json").then(r => r.json())
+      ]);
+      this.translations.en = en;
+      this.translations.ar = ar;
+      this.applyLanguage(this.currentLang);
+    } catch (e) {
+      console.warn("i18n: Could not load translation files, using fallback");
+      this.translations = this.getFallbackTranslations();
+      this.applyLanguage(this.currentLang);
+    }
   },
 
-  ar: {
-    // Common
-    app_name:        "نظام تخطيط الموارد",
-    app_tagline:     "تخطيط موارد المؤسسة",
-    logout:          "تسجيل الخروج",
-    save:            "حفظ",
-    cancel:          "إلغاء",
-    update:          "تحديث",
-    delete:          "حذف",
-    edit:            "تعديل",
-    add:             "إضافة",
-    submit:          "إرسال",
-    close:           "إغلاق",
-    loading:         "جار التحميل...",
-    actions:         "الإجراءات",
-    status:          "الحالة",
-    date:            "التاريخ",
-    description:     "الوصف",
+  // Get translation
+  t(key, fallback = key) {
+    const lang = this.translations[this.currentLang] || this.translations.en || {};
+    return lang[key] || fallback;
+  },
 
-    // Login Page
-    sign_in:         "تسجيل الدخول إلى حسابك",
-    email_address:   "البريد الإلكتروني",
-    password:        "كلمة المرور",
-    sign_in_btn:      "تسجيل الدخول",
-    no_account:      "ليس لديك حساب؟",
-    register_link:   "تسجيل جديد",
+  // Switch language
+  switchLanguage(lang) {
+    if (lang !== "en" && lang !== "ar") return;
+    this.currentLang = lang;
+    localStorage.setItem("appLang", lang);
+    this.applyLanguage(lang);
+  },
 
-    // Register Page
-    create_account:  "إنشاء حساب جديد",
-    username:        "اسم المستخدم",
-    role:            "الوظيفة",
-    create_account_btn: "إنشاء الحساب",
-    have_account:    "لديك حساب بالفعل؟",
-    sign_in_link:    "تسجيل الدخول",
-    role_employee:   "موظف",
-    role_hr:         "مدير الموارد البشرية",
-    role_finance:    "المالية",
-    role_admin:      "مدير النظام",
+  // Apply language to page
+  applyLanguage(lang) {
+    const root = document.documentElement;
+    root.lang = lang;
+    root.dir = lang === "ar" ? "rtl" : "ltr";
 
-    // Sidebar / Navigation
-    dashboard:       "لوحة التحكم",
-    employees:       "الموظفون",
-    leave_requests:  "طلبات الإجازة",
-    attendance:      "الحضور",
-    payroll:         "الرواتب",
-    contracts:       "العقود",
-    performance:     "تقييم الأداء",
-    documents:       "المستندات",
-    expenses:        "المصروفات",
-    budgets:         "الموازنات",
-    general_ledger:  "دفتر الأستاذ العام",
-    journal_entries: "القيود اليومية",
-    pl_report:       "تقرير الأرباح والخسائر",
-    cash_flow:       "التدفق النقدي",
-    expense_analysis:"تحليل المصروفات",
-    procurement:     "المشتريات",
-    inventory:       "المخزون",
-    assets:          "الأصول",
-    user_management: "إدارة المستخدمين",
-    audit_log:       "سجل النشاطات",
+    // Apply RTL CSS if Arabic
+    const rtlStyle = document.getElementById("rtl-styles");
+    if (lang === "ar") {
+      if (!rtlStyle) {
+        const style = document.createElement("style");
+        style.id = "rtl-styles";
+        style.innerHTML = `
+          html, body { direction: rtl; text-align: right; }
+          .sidebar, .navbar, .header { direction: rtl; }
+          .btn, button { margin: 0 2px; }
+          input, textarea, select { text-align: right; direction: rtl; }
+          .modal-content, .card { direction: rtl; }
+          table { direction: rtl; }
+          .text-left { text-align: right; }
+          .text-right { text-align: left; }
+          .float-left { float: right; }
+          .float-right { float: left; }
+          .ml-auto { margin-left: 0; margin-right: auto; }
+          .mr-auto { margin-right: 0; margin-left: auto; }
+        `;
+        document.head.appendChild(style);
+      }
+    } else {
+      if (rtlStyle) rtlStyle.remove();
+    }
+
+    // Translate all elements
+    document.querySelectorAll("[data-i18n]").forEach(el => {
+      const key = el.getAttribute("data-i18n");
+      const type = el.getAttribute("data-i18n-type") || "text";
+      const trans = this.t(key);
+      
+      if (type === "placeholder") el.placeholder = trans;
+      else if (type === "title") el.title = trans;
+      else if (type === "value") el.value = trans;
+      else el.textContent = trans;
+    });
+
+    // Update lang toggle button
+    const langBtn = document.getElementById("langToggle");
+    if (langBtn) langBtn.textContent = lang === "ar" ? "EN" : "AR";
+
+    // Dispatch event for dynamic translations
+    window.dispatchEvent(new Event("i18n-changed"));
+  },
+
+  // Fallback translations (inline)
+  getFallbackTranslations() {
+    return {
+      en: { logout: "Logout", save: "Save", cancel: "Cancel", loading: "Loading..." },
+      ar: { logout: "تسجيل الخروج", save: "حفظ", cancel: "إلغاء", loading: "جاري التحميل..." }
+    };
   }
 };
 
-// ── Apply Translations to Page ───────────────────────────
+// ── Backward compatibility functions ───────────────────────
 function applyTranslations() {
-  const lang = localStorage.getItem("erp_lang") || "en";
-  const dict = translations[lang] || translations.en;
-
-  // Set direction
-  document.documentElement.setAttribute("dir", lang === "ar" ? "rtl" : "ltr");
-  document.documentElement.setAttribute("lang", lang);
-
-  // Translate all elements with data-i18n attribute
-  document.querySelectorAll("[data-i18n]").forEach(el => {
-    const key = el.getAttribute("data-i18n");
-    if (dict[key]) {
-      el.textContent = dict[key];
-    }
-  });
-
-  // Translate placeholders
-  document.querySelectorAll("[data-i18n-placeholder]").forEach(el => {
-    const key = el.getAttribute("data-i18n-placeholder");
-    if (dict[key]) {
-      el.placeholder = dict[key];
-    }
-  });
-
-  // Update toggle button label
-  const toggleBtn = document.getElementById("langToggle");
-  if (toggleBtn) {
-    toggleBtn.textContent = lang === "ar" ? "EN" : "AR";
-  }
+  i18n.applyLanguage(i18n.currentLang);
 }
 
-// ── Toggle Language ───────────────────────────────────────
 function toggleLanguage() {
-  const current = localStorage.getItem("erp_lang") || "en";
-  const next    = current === "en" ? "ar" : "en";
-  localStorage.setItem("erp_lang", next);
-  applyTranslations();
+  const next = i18n.currentLang === "en" ? "ar" : "en";
+  i18n.switchLanguage(next);
+  location.reload();
 }
 
-// Get current translation for use in JS (e.g., dynamic content)
 function t(key) {
-  const lang = localStorage.getItem("erp_lang") || "en";
-  const dict = translations[lang] || translations.en;
-  return dict[key] || key;
+  return i18n.t(key);
 }
 
-// Apply on page load
-document.addEventListener("DOMContentLoaded", applyTranslations);
+// Initialize on DOMContentLoaded
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => i18n.init());
+} else {
+  i18n.init();
+}

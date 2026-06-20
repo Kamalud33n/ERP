@@ -1,8 +1,42 @@
-from datetime import datetime
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
+from datetime import datetime, date
 from app.models.finance import Expense, Budget, GeneralLedger
 from app.schemas.finance import ExpenseCreate, ExpenseUpdate, BudgetCreate, GLCreate
+
+# ── GL Posting Helper ──────────────────────────────────
+# BUG FIX: `datetime` was previously only imported inside get_profit_and_loss(),
+# so create_journal_entry, reverse_journal_entry, get_balance_sheet,
+# create_vendor_bill, and create_vendor_payment all crashed with
+# NameError at runtime. Fixed by importing at module level above.
+
+def post_gl_entry(db: Session, entry_date, description: str, account_type: str,
+                   debit: float = 0.0, credit: float = 0.0,
+                   reference: str = None, created_by: int = None) -> GeneralLedger:
+    """
+    Internal helper used both by the manual /gl endpoint and by auto-posting
+    hooks from other modules (payroll, procurement, assets). Keeps the
+    running-balance logic in one place.
+    """
+    last_entry = db.query(GeneralLedger).order_by(GeneralLedger.id.desc()).first()
+    last_balance = last_entry.balance if last_entry else 0.0
+    new_balance = last_balance + debit - credit
+
+    entry = GeneralLedger(
+        date         = entry_date,
+        description  = description,
+        debit        = debit,
+        credit       = credit,
+        balance      = new_balance,
+        account_type = account_type,
+        reference    = reference,
+        created_by   = created_by
+    )
+    db.add(entry)
+    db.commit()
+    db.refresh(entry)
+    return entry
+
 
 # ── Expense ────────────────────────────────────────────
 def create_expense(db: Session, data: ExpenseCreate, submitted_by: int) -> Expense:
@@ -73,27 +107,20 @@ def get_all_budgets(db: Session):
 def get_budget_by_department(db: Session, department: str):
     return db.query(Budget).filter(Budget.department == department).all()
 
+def get_over_budget_alerts(db: Session):
+    """
+    Return Budget objects where spent exceeds the allocated amount.
+    """
+    return db.query(Budget).filter(Budget.spent > Budget.amount).all()
+
 
 # ── General Ledger ─────────────────────────────────────
 def create_gl_entry(db: Session, data: GLCreate, created_by: int) -> GeneralLedger:
-    last_entry = db.query(GeneralLedger).order_by(GeneralLedger.id.desc()).first()
-    last_balance = last_entry.balance if last_entry else 0.0
-    new_balance  = last_balance + data.debit - data.credit
-
-    entry = GeneralLedger(
-        date         = data.date,
-        description  = data.description,
-        debit        = data.debit,
-        credit       = data.credit,
-        balance      = new_balance,
-        account_type = data.account_type,
-        reference    = data.reference,
-        created_by   = created_by
+    return post_gl_entry(
+        db, entry_date=data.date, description=data.description,
+        account_type=data.account_type, debit=data.debit, credit=data.credit,
+        reference=data.reference, created_by=created_by
     )
-    db.add(entry)
-    db.commit()
-    db.refresh(entry)
-    return entry
 
 def get_all_gl_entries(db: Session):
     return db.query(GeneralLedger).order_by(GeneralLedger.date).all()
@@ -121,13 +148,15 @@ def get_profit_and_loss(db: Session, month: str = None) -> dict:
     gl_entries = db.query(GeneralLedger).all()
 
     if month:
-        from datetime import datetime
         gl_entries = [g for g in gl_entries if str(g.date).startswith(month)]
 
-    income   = sum(g.credit for g in gl_entries if g.account_type == "income")
-    expenses = sum(g.debit  for g in gl_entries if g.account_type == "expense")
-    assets   = sum(g.debit  for g in gl_entries if g.account_type == "asset")
-    liability= sum(g.credit for g in gl_entries if g.account_type == "liability")
+    # Net per account type (credit - debit for income/liability, debit - credit for expense/asset)
+    # FIX: previously one-sided (e.g. expenses = sum(debit) only), so a credit
+    # entry against an expense account (a refund/correction) had no effect.
+    income    = sum(g.credit for g in gl_entries if g.account_type == "income")  - sum(g.debit  for g in gl_entries if g.account_type == "income")
+    expenses  = sum(g.debit  for g in gl_entries if g.account_type == "expense") - sum(g.credit for g in gl_entries if g.account_type == "expense")
+    assets    = sum(g.debit  for g in gl_entries if g.account_type == "asset")   - sum(g.credit for g in gl_entries if g.account_type == "asset")
+    liability = sum(g.credit for g in gl_entries if g.account_type == "liability") - sum(g.debit for g in gl_entries if g.account_type == "liability")
 
     gross_profit = income - expenses
     net_profit   = gross_profit
@@ -396,10 +425,12 @@ def seed_default_coa(db: Session, created_by: int):
 def get_balance_sheet(db: Session) -> dict:
     gl_entries = db.query(GeneralLedger).all()
 
-    total_assets      = sum(g.debit  for g in gl_entries if g.account_type == "asset")
-    total_liabilities = sum(g.credit for g in gl_entries if g.account_type == "liability")
-    total_income      = sum(g.credit for g in gl_entries if g.account_type == "income")
-    total_expenses    = sum(g.debit  for g in gl_entries if g.account_type == "expense")
+    # FIX: net per account type instead of one-sided sum, so payments/depreciation
+    # (which post the opposite side) actually reduce the totals.
+    total_assets      = sum(g.debit  for g in gl_entries if g.account_type == "asset")     - sum(g.credit for g in gl_entries if g.account_type == "asset")
+    total_liabilities = sum(g.credit for g in gl_entries if g.account_type == "liability") - sum(g.debit  for g in gl_entries if g.account_type == "liability")
+    total_income       = sum(g.credit for g in gl_entries if g.account_type == "income")   - sum(g.debit  for g in gl_entries if g.account_type == "income")
+    total_expenses     = sum(g.debit  for g in gl_entries if g.account_type == "expense")  - sum(g.credit for g in gl_entries if g.account_type == "expense")
     net_profit        = total_income - total_expenses
     total_equity      = net_profit  # simplified
 
@@ -424,4 +455,124 @@ def get_balance_sheet(db: Session) -> dict:
         },
         "balance_check": round(total_assets, 2) == round(total_liabilities + total_equity, 2),
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M")
+    }
+
+
+# ── Accounts Payable ───────────────────────────────────
+from app.models.finance import VendorBill, VendorPayment
+from app.schemas.finance import VendorBillCreate, VendorBillUpdate, VendorPaymentCreate
+
+def create_vendor_bill(db: Session, data: VendorBillCreate, created_by: int) -> VendorBill:
+    count       = db.query(VendorBill).count()
+    bill_number = f"BILL-{datetime.now().year}-{str(count + 1).zfill(4)}"
+
+    bill = VendorBill(
+        vendor_id   = data.vendor_id,
+        bill_number = bill_number,
+        bill_date   = data.bill_date,
+        due_date    = data.due_date,
+        amount      = data.amount,
+        outstanding = data.amount,  # initially full amount outstanding
+        description = data.description,
+        created_by  = created_by
+    )
+    db.add(bill)
+    db.commit()
+    db.refresh(bill)
+
+    # Auto-post to GL: vendor bill = liability incurred
+    post_gl_entry(
+        db, entry_date=data.bill_date,
+        description=f"Vendor Bill {bill_number} received",
+        account_type="liability", credit=data.amount,
+        reference=bill_number, created_by=created_by
+    )
+    return bill
+
+def get_all_bills(db: Session):
+    return db.query(VendorBill).order_by(VendorBill.created_at.desc()).all()
+
+def get_bill_by_id(db: Session, bill_id: int) -> VendorBill:
+    bill = db.query(VendorBill).filter(VendorBill.id == bill_id).first()
+    if not bill:
+        raise HTTPException(status_code=404, detail="Bill not found")
+    return bill
+
+def get_outstanding_bills(db: Session):
+    return db.query(VendorBill).filter(
+        VendorBill.status.in_(["unpaid", "partial", "overdue"])
+    ).order_by(VendorBill.due_date).all()
+
+def update_bill(db: Session, bill_id: int, data: VendorBillUpdate) -> VendorBill:
+    bill = get_bill_by_id(db, bill_id)
+    for field, value in data.model_dump(exclude_none=True).items():
+        setattr(bill, field, value)
+    db.commit()
+    db.refresh(bill)
+    return bill
+
+def create_vendor_payment(db: Session, data: VendorPaymentCreate, created_by: int) -> VendorPayment:
+    bill = get_bill_by_id(db, data.bill_id)
+
+    if data.amount > bill.outstanding:
+        raise HTTPException(status_code=400, detail=f"Payment amount ({data.amount}) exceeds outstanding ({bill.outstanding})")
+
+    count          = db.query(VendorPayment).count()
+    payment_number = f"PAY-{datetime.now().year}-{str(count + 1).zfill(4)}"
+
+    payment = VendorPayment(
+        bill_id        = data.bill_id,
+        vendor_id      = bill.vendor_id,
+        payment_number = payment_number,
+        payment_date   = data.payment_date,
+        amount         = data.amount,
+        payment_method = data.payment_method,
+        reference      = data.reference,
+        notes          = data.notes,
+        created_by     = created_by
+    )
+    db.add(payment)
+
+    # Update bill outstanding and status
+    bill.paid_amount  += data.amount
+    bill.outstanding   = round(bill.amount - bill.paid_amount, 2)
+
+    if bill.outstanding <= 0:
+        bill.status = "paid"
+    elif bill.paid_amount > 0:
+        bill.status = "partial"
+
+    db.commit()
+    db.refresh(payment)
+
+    # Auto-post to GL: payment reduces the liability (debit liability)
+    post_gl_entry(
+        db, entry_date=data.payment_date,
+        description=f"Vendor Payment {payment_number} - Bill {bill.bill_number}",
+        account_type="liability", debit=data.amount,
+        reference=payment_number, created_by=created_by
+    )
+    return payment
+
+def get_payments_by_bill(db: Session, bill_id: int):
+    return db.query(VendorPayment).filter(VendorPayment.bill_id == bill_id).all()
+
+def get_ap_summary(db: Session) -> dict:
+    bills        = db.query(VendorBill).all()
+    total_bills  = len(bills)
+    total_amount = sum(b.amount for b in bills)
+    total_paid   = sum(b.paid_amount for b in bills)
+    outstanding  = sum(b.outstanding for b in bills)
+    overdue      = len([b for b in bills if b.status == "overdue"])
+    unpaid       = len([b for b in bills if b.status == "unpaid"])
+    partial      = len([b for b in bills if b.status == "partial"])
+
+    return {
+        "total_bills":   total_bills,
+        "total_amount":  round(total_amount, 2),
+        "total_paid":    round(total_paid, 2),
+        "outstanding":   round(outstanding, 2),
+        "overdue_count": overdue,
+        "unpaid_count":  unpaid,
+        "partial_count": partial,
     }

@@ -1,0 +1,32 @@
+<!-- Language Switcher - Add this to the header/navbar of each page -->
+<div id="langSwitcher" style="position: absolute; top: 12px; right: 12px; z-index: 1000;">
+  <button id="langToggle" onclick="toggleLanguage()" 
+    style="
+      background: linear-gradient(135deg, #1a73e8 0%, #0f9d58 100%);
+      color: white;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 13px;
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    "
+    onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.25)'"
+    onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.15)'">
+    EN
+  </button>
+</div>
+
+<style>
+  #langSwitcher {
+    /* Adjust position based on layout */
+  }
+  
+  /* RTL adjustments */
+  html[dir="rtl"] #langSwitcher {
+    right: auto;
+    left: 12px;
+  }
+</style>

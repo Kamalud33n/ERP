@@ -1,0 +1,223 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: mednova-postgres
+    environment:
+      POSTGRES_USER: mednova
+      POSTGRES_PASSWORD: mednova_secure_password_123
+      POSTGRES_DB: mednova_erp
+      POSTGRES_INITDB_ARGS: "-c max_connections=100 -c shared_buffers=256MB"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backups:/backups
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mednova -d mednova_erp"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - mednova_network
+
+  # Redis Cache & Message Broker
+  redis:
+    image: redis:7-alpine
+    container_name: mednova-redis
+    command: redis-server --appendonly yes --requirepass redis_secure_password_123
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - mednova_network
+
+  # FastAPI Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mednova-app
+    environment:
+      # Database
+      DATABASE_URL: postgresql://mednova:mednova_secure_password_123@postgres:5432/mednova_erp
+      
+      # Redis
+      REDIS_URL: redis://:redis_secure_password_123@redis:6379/0
+      CELERY_BROKER_URL: redis://:redis_secure_password_123@redis:6379/0
+      CELERY_RESULT_BACKEND: redis://:redis_secure_password_123@redis:6379/1
+      
+      # Email (Configure these in production)
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-your-email@gmail.com}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-your-app-password}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-noreply@mednova.com}
+      
+      # Document Archive
+      DOCUMENT_STORAGE_TYPE: ${DOCUMENT_STORAGE_TYPE:-local}
+      DOCUMENT_ARCHIVE_PATH: /app/documents_archive
+      MAX_DOCUMENT_SIZE_MB: 100
+      DOCUMENT_RETENTION_YEARS: 7
+      
+      # App Settings
+      DEBUG: ${DEBUG:-false}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      
+      # API Configuration
+      API_HOST: 0.0.0.0
+      API_PORT: 3000
+      API_RELOAD: false
+      
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./app:/app/app
+      - ./documents_archive:/app/documents_archive
+      - ./logs:/app/logs
+    command: >
+      bash -c "python -m alembic upgrade head && 
+               uvicorn app.main:app --host 0.0.0.0 --port 3000 --reload"
+    networks:
+      - mednova_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Celery Worker - Background Jobs
+  celery_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mednova-celery-worker
+    command: celery -A app.tasks.celery_config worker --loglevel=info --concurrency=4
+    environment:
+      DATABASE_URL: postgresql://mednova:mednova_secure_password_123@postgres:5432/mednova_erp
+      CELERY_BROKER_URL: redis://:redis_secure_password_123@redis:6379/0
+      CELERY_RESULT_BACKEND: redis://:redis_secure_password_123@redis:6379/1
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-your-email@gmail.com}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-your-app-password}
+      DEBUG: "false"
+    depends_on:
+      - postgres
+      - redis
+      - app
+    volumes:
+      - ./app:/app/app
+      - ./logs:/app/logs
+    networks:
+      - mednova_network
+
+  # Celery Beat - Task Scheduler
+  celery_beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mednova-celery-beat
+    command: celery -A app.tasks.celery_config beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    environment:
+      DATABASE_URL: postgresql://mednova:mednova_secure_password_123@postgres:5432/mednova_erp
+      CELERY_BROKER_URL: redis://:redis_secure_password_123@redis:6379/0
+      CELERY_RESULT_BACKEND: redis://:redis_secure_password_123@redis:6379/1
+      DEBUG: "false"
+    depends_on:
+      - postgres
+      - redis
+      - app
+    volumes:
+      - ./app:/app/app
+      - ./logs:/app/logs
+    networks:
+      - mednova_network
+
+  # Nginx Reverse Proxy & Load Balancer
+  nginx:
+    image: nginx:alpine
+    container_name: mednova-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+      - ./logs/nginx:/var/log/nginx
+    depends_on:
+      - app
+    networks:
+      - mednova_network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # MinIO Object Storage (Optional - for document archiving)
+  minio:
+    image: minio/minio:latest
+    container_name: mednova-minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin_secure_password_123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    networks:
+      - mednova_network
+    profiles:
+      - optional  # Only start with: docker-compose --profile optional up
+
+  # Flower - Celery Task Monitor (Optional)
+  flower:
+    image: mher/flower:latest
+    container_name: mednova-flower
+    command: celery --broker=redis://:redis_secure_password_123@redis:6379/0 flower --port=5555
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
+      - celery_worker
+    networks:
+      - mednova_network
+    profiles:
+      - optional  # Only start with: docker-compose --profile optional up
+
+# Volumes for persistent data
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  minio_data:
+    driver: local
+
+# Network
+networks:
+  mednova_network:
+    driver: bridge
