@@ -34,3 +34,4 @@ pillow==10.1.0
 # Async helpers
 aiofiles==23.2.1
 asyncio==3.4.3
+nest_asyncio==1.6.0

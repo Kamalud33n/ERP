@@ -15,9 +15,12 @@ class Employee(Base):
     designation   = Column(String(100))
     salary        = Column(Float, default=0.0)
     join_date     = Column(Date)
+    manager_id    = Column(Integer, ForeignKey("employees.id"), nullable=True)
     created_at    = Column(DateTime, default=datetime.utcnow)
 
-    user       = relationship("User", back_populates="employee")
-    leaves     = relationship("Leave", back_populates="employee")
-    attendance = relationship("Attendance", back_populates="employee")
-    payrolls   = relationship("Payroll", back_populates="employee")
+    user         = relationship("User", back_populates="employee")
+    leaves       = relationship("Leave", back_populates="employee")
+    attendance   = relationship("Attendance", back_populates="employee")
+    payrolls     = relationship("Payroll", back_populates="employee")
+    manager      = relationship("Employee", remote_side="Employee.id",
+                                foreign_keys="Employee.manager_id", backref="direct_reports")

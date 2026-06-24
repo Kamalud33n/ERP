@@ -70,7 +70,7 @@ def my_attendance(db: Session = Depends(get_db), current_user=Depends(get_curren
 
 @router.post("/payroll", response_model=PayrollOut)
 def process_payroll(data: PayrollCreate, db: Session = Depends(get_db), current_user=Depends(get_hr)):
-    return create_payroll(db, data, current_user.id)
+    return create_payroll(db, data, current_user)
 
 @router.get("/payroll", response_model=List[PayrollOut])
 def all_payrolls(db: Session = Depends(get_db), current_user=Depends(get_hr)):

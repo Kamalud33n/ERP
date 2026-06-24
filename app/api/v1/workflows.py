@@ -1,6 +1,5 @@
 """
-Approval Workflow API Endpoints
-Handles workflow configuration and approval operations
+Approval Workflow API — Unified System
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query, File, UploadFile
@@ -10,90 +9,92 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 from app.core.database import get_db
-from app.services.workflow_engine import WorkflowEngine, ApprovalStatus, RequestStatus, WorkflowTemplate
+from app.services.workflow_engine import (
+    WorkflowEngine, ApprovalStatus, RequestStatus,
+    WorkflowTemplate, ApprovalStep as EngineStep
+)
 from app.services.cross_module_triggers import execute_trigger, TriggerEvent
-from app.services.document_archive import DocumentArchive, DocumentMetadata, DocumentType
+from app.services.document_archive import DocumentArchive
 from app.models.user import User
 from app.core.dependencies import get_current_user
 
-router = APIRouter(prefix="/api/v1/workflows", tags=["Workflows & Approvals"])
+router = APIRouter(tags=["Workflows & Approvals"])
 
 
-# ─────────────────────────────────────────────────────────────
-# Schemas for Request/Response
-# ─────────────────────────────────────────────────────────────
+# ── Schemas ────────────────────────────────────────────────────
 
 class ApprovalStepSchema(BaseModel):
-    order: int
-    role: str
-    approver_count: int = 1
-    auto_approve: bool = False
-    parallel: bool = False
-    description: str
+    """
+    Schema used by the API route.
+    Identical fields to EngineStep — but different class.
+    We convert explicitly below to avoid Pydantic v2 type rejection.
+    """
+    order:          int
+    role:           str
+    approver_count: int  = 1
+    auto_approve:   bool = False
+    parallel:       bool = False
+    description:    str
 
 
 class WorkflowTemplateCreateSchema(BaseModel):
-    name: str
-    module: str  # hr, finance, procurement, inventory, assets
-    request_type: str
-    steps: List[ApprovalStepSchema]
+    name:                  str
+    module:                str   # hr | finance | procurement | inventory | asset
+    request_type:          str   # leave | expense | purchase_request | etc.
+    steps:                 List[ApprovalStepSchema]
     requires_documentation: bool = True
 
 
 class ApprovalActionSchema(BaseModel):
-    approval_id: int
-    action: str  # approve, reject, return_for_edit
-    comments: Optional[str] = None
-    required_changes: Optional[str] = None  # For return_for_edit
+    approval_id:      int
+    action:           str            # approve | reject | return_for_edit
+    comments:         Optional[str] = None
+    required_changes: Optional[str] = None
 
 
-class PendingApprovalsResponse(BaseModel):
-    approval_id: int
-    request_id: int
-    request_type: str
-    status: str
-    current_step: int
-    initiated_by: int
-    created_at: datetime
-    request_summary: dict
-
-
-# ─────────────────────────────────────────────────────────────
-# Workflow Template Management
-# ─────────────────────────────────────────────────────────────
+# ── Template Management ────────────────────────────────────────
 
 @router.post("/templates", response_model=dict)
 async def create_workflow_template(
     template_data: WorkflowTemplateCreateSchema,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db:            Session = Depends(get_db),
+    current_user:  User    = Depends(get_current_user),
 ):
     """
-    Create a new workflow template
-    Example: Employee → Dept Manager → Finance → Final Approval
+    Create a new approval chain template.
+    Example: Leave → HR Manager → Admin (2 steps)
+
+    BUG FIX (#4): ApprovalStepSchema vs ApprovalStep mismatch.
+    template_data.steps is List[ApprovalStepSchema] but WorkflowTemplate
+    expects List[ApprovalStep] from workflow_engine.py.
+    Pydantic v2 rejects cross-class instances even with identical fields.
+    Fix: convert each step via .model_dump() before passing to engine.
     """
     try:
+        # Convert ApprovalStepSchema → EngineStep (fixes the 400 error)
+        engine_steps = [EngineStep(**s.model_dump()) for s in template_data.steps]
+
         workflow_template = WorkflowTemplate(
-            name=template_data.name,
-            module=template_data.module,
-            request_type=template_data.request_type,
-            steps=template_data.steps,
-            requires_documentation=template_data.requires_documentation
+            name                  = template_data.name,
+            module                = template_data.module,
+            request_type          = template_data.request_type,
+            steps                 = engine_steps,
+            requires_documentation = template_data.requires_documentation,
         )
-        
+
         workflow = WorkflowEngine.create_workflow_template(db, workflow_template)
-        
+
         return {
-            "status": "success",
+            "status":      "success",
             "workflow_id": workflow.id,
-            "message": f"Workflow template '{template_data.name}' created successfully",
+            "message":     f"Workflow template '{template_data.name}' created successfully",
             "template": {
-                "id": workflow.id,
-                "name": workflow.name,
-                "module": workflow.module,
+                "id":           workflow.id,
+                "name":         workflow.name,
+                "module":       workflow.module,
                 "request_type": workflow.request_type,
-                "steps_count": len(template_data.steps)
-            }
+                "steps_count":  len(template_data.steps),
+            },
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -101,91 +102,97 @@ async def create_workflow_template(
 
 @router.get("/templates", response_model=dict)
 async def list_workflow_templates(
-    module: Optional[str] = Query(None),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    module:       Optional[str] = Query(None),
+    db:           Session       = Depends(get_db),
+    current_user: User          = Depends(get_current_user),
 ):
-    """List all workflow templates, optionally filtered by module"""
-    # TODO: Query all workflow templates
+    """List all active workflow templates, optionally filtered by module."""
+    import json
+    from app.models.workflow_config import ApprovalWorkflow
+
+    q = db.query(ApprovalWorkflow)
+    if module:
+        q = q.filter(ApprovalWorkflow.module == module)
+    workflows = q.filter(ApprovalWorkflow.is_active == True).order_by(ApprovalWorkflow.id.desc()).all()
+
     return {
         "status": "success",
-        "templates": [],
-        "count": 0
+        "count":  len(workflows),
+        "templates": [
+            {
+                "id":           w.id,
+                "name":         w.name,
+                "module":       w.module,
+                "request_type": w.request_type,
+                "is_active":    w.is_active,
+                "steps":        json.loads(w.approval_chain) if w.approval_chain else [],
+                "created_at":   w.created_at.isoformat() if w.created_at else None,
+            }
+            for w in workflows
+        ],
     }
 
 
-# ─────────────────────────────────────────────────────────────
-# Request Submission & Approval Initiation
-# ─────────────────────────────────────────────────────────────
+# ── Initiate Approval ──────────────────────────────────────────
 
 @router.post("/initiate", response_model=dict)
 async def initiate_approval_workflow(
     request_type: str,
-    module: str,
-    request_id: int,
+    module:       str,
+    request_id:   int,
     request_data: dict,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db:           Session = Depends(get_db),
+    current_user: User    = Depends(get_current_user),
 ):
     """
-    Submit a request and initiate approval workflow
-    Automatically routes to first approver
+    Submit any request into the approval engine.
+    Automatically finds the matching template and routes to first approver.
     """
     try:
         approval_instance = WorkflowEngine.initiate_approval(
-            db=db,
-            request_id=request_id,
-            request_type=request_type,
-            module=module,
-            initiated_by=current_user.id,
-            request_data=request_data,
-            department_id=getattr(current_user, 'department_id', None)
+            db           = db,
+            request_id   = request_id,
+            request_type = request_type,
+            module       = module,
+            initiated_by = current_user.id,
+            request_data = request_data,
+            department_id = getattr(current_user, "department_id", None),
         )
-        
         return {
-            "status": "success",
-            "approval_id": approval_instance.id,
+            "status":       "success",
+            "approval_id":  approval_instance.id,
             "current_step": approval_instance.current_step,
-            "message": f"Request #{request_id} submitted for approval",
-            "next_approvers": []  # TODO: Get from approvers_json
+            "message":      f"Request #{request_id} submitted for approval",
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
-# ─────────────────────────────────────────────────────────────
-# Approval Actions
-# ─────────────────────────────────────────────────────────────
+# ── Approval Actions ───────────────────────────────────────────
 
 @router.post("/approve", response_model=dict)
 async def approve_request(
-    action_data: ApprovalActionSchema,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    action_data:  ApprovalActionSchema,
+    db:           Session = Depends(get_db),
+    current_user: User    = Depends(get_current_user),
 ):
-    """
-    Approve a request at current step
-    If all approvers in step approve, routes to next step
-    """
+    """Approve at current step. If all approvers done, routes to next step."""
     try:
         approval = WorkflowEngine.approve_request(
-            db=db,
-            approval_id=action_data.approval_id,
-            approver_id=current_user.id,
-            comments=action_data.comments or ""
+            db          = db,
+            approval_id = action_data.approval_id,
+            approver_id = current_user.id,
+            comments    = action_data.comments or "",
         )
-        
-        next_step_info = ""
         if approval:
-            next_step_info = f" and routed to step {approval.current_step + 1}"
+            msg = f"Approved and routed to step {approval.current_step + 1}"
         else:
-            next_step_info = " - REQUEST FULLY APPROVED! 🎉"
-        
+            msg = "Request fully approved!"
+
         return {
-            "status": "success",
-            "message": f"Request approved{next_step_info}",
+            "status":      "success",
+            "message":     msg,
             "approval_id": action_data.approval_id,
-            "next_approvers": []  # TODO: Get from next approvers
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -193,26 +200,22 @@ async def approve_request(
 
 @router.post("/reject", response_model=dict)
 async def reject_request(
-    action_data: ApprovalActionSchema,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    action_data:  ApprovalActionSchema,
+    db:           Session = Depends(get_db),
+    current_user: User    = Depends(get_current_user),
 ):
-    """
-    Reject a request
-    Sends notification back to requester
-    """
+    """Reject a request. Notifies the requester."""
     try:
-        approval = WorkflowEngine.reject_request(
-            db=db,
-            approval_id=action_data.approval_id,
-            rejected_by=current_user.id,
-            reason=action_data.comments or "No reason provided"
+        WorkflowEngine.reject_request(
+            db          = db,
+            approval_id = action_data.approval_id,
+            rejected_by = current_user.id,
+            reason      = action_data.comments or "No reason provided",
         )
-        
         return {
-            "status": "success",
-            "message": "Request rejected - notification sent to requester",
-            "approval_id": action_data.approval_id
+            "status":      "success",
+            "message":     "Request rejected — requester notified",
+            "approval_id": action_data.approval_id,
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -220,142 +223,101 @@ async def reject_request(
 
 @router.post("/return-for-edit", response_model=dict)
 async def return_for_edit(
-    action_data: ApprovalActionSchema,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    action_data:  ApprovalActionSchema,
+    db:           Session = Depends(get_db),
+    current_user: User    = Depends(get_current_user),
 ):
-    """
-    Return request for edits
-    Sends back to requester with required changes
-    """
+    """Return request back to submitter with required changes."""
     try:
-        approval = WorkflowEngine.return_for_edit(
-            db=db,
-            approval_id=action_data.approval_id,
-            returned_by=current_user.id,
-            required_changes=action_data.required_changes or "Please review and make necessary edits"
+        WorkflowEngine.return_for_edit(
+            db               = db,
+            approval_id      = action_data.approval_id,
+            returned_by      = current_user.id,
+            required_changes = action_data.required_changes or "Please review and make necessary edits",
         )
-        
         return {
-            "status": "success",
-            "message": "Request returned for edits - notification sent",
-            "approval_id": action_data.approval_id
+            "status":      "success",
+            "message":     "Request returned for edits — requester notified",
+            "approval_id": action_data.approval_id,
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
-# ─────────────────────────────────────────────────────────────
-# Approver Dashboard
-# ─────────────────────────────────────────────────────────────
+# ── Approver Inbox ─────────────────────────────────────────────
 
 @router.get("/pending", response_model=dict)
 async def get_pending_approvals(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db:           Session = Depends(get_db),
+    current_user: User    = Depends(get_current_user),
 ):
-    """
-    Get all pending approvals for current user
-    Grouped by request type and priority
-    """
+    """Get all requests waiting for the current user's approval."""
     try:
-        pending_approvals = WorkflowEngine.get_pending_approvals_for_user(
-            db=db,
-            user_id=current_user.id
+        pending = WorkflowEngine.get_pending_approvals_for_user(
+            db      = db,
+            user_id = current_user.id,
         )
-        
-        # TODO: Group by request type
-        # TODO: Add priority sorting
-        
         approvals_list = [
             {
-                "approval_id": a.id,
-                "request_id": a.request_id,
+                "approval_id":  a.id,
+                "request_id":   a.request_id,
                 "request_type": a.request_type,
-                "status": a.status,
+                "module":       a.module,
+                "status":       a.status,
                 "current_step": a.current_step,
                 "initiated_by": a.initiated_by,
-                "created_at": a.created_at.isoformat() if a.created_at else None,
-                "request_summary": {}
+                "created_at":   a.created_at.isoformat() if a.created_at else None,
             }
-            for a in pending_approvals
+            for a in pending
         ]
-        
         return {
-            "status": "success",
+            "status":    "success",
+            "count":     len(approvals_list),
             "approvals": approvals_list,
-            "count": len(approvals_list),
-            "grouped_by_type": {}  # TODO: Add grouping
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ─────────────────────────────────────────────────────────────
-# Audit Trail
-# ─────────────────────────────────────────────────────────────
+# ── Audit Trail ────────────────────────────────────────────────
 
 @router.get("/audit-trail/{request_type}/{request_id}", response_model=dict)
 async def get_request_audit_trail(
     request_type: str,
-    request_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    request_id:   int,
+    db:           Session = Depends(get_db),
+    current_user: User    = Depends(get_current_user),
 ):
-    """
-    Get complete audit trail for a request
-    Shows all approvals, rejections, returns, and comments
-    """
+    """Full approval history for a request — who approved, when, comments."""
     try:
         audit_trail = WorkflowEngine.get_request_audit_trail(
-            db=db,
-            request_id=request_id,
-            request_type=request_type
+            db           = db,
+            request_id   = request_id,
+            request_type = request_type,
         )
-        
         return {
-            "status": "success",
+            "status":      "success",
             "audit_trail": audit_trail,
-            "message": "Audit trail retrieved successfully"
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ─────────────────────────────────────────────────────────────
-# Cross-Module Triggers (Event Handling)
-# ─────────────────────────────────────────────────────────────
+# ── Cross-Module Triggers ──────────────────────────────────────
 
 @router.post("/triggers/po-approved", response_model=dict)
 async def trigger_po_approved(
-    po_id: int,
-    po_data: dict,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    po_id:        int,
+    po_data:      dict,
+    db:           Session = Depends(get_db),
+    current_user: User    = Depends(get_current_user),
 ):
-    """
-    Trigger: PO Approved
-    Executes:
-    1. GL commitment entry
-    2. Inventory pending receipt
-    3. Warehouse notification
-    """
+    """Fire when a PO is approved — posts GL entry, creates inventory receipt."""
     try:
-        execute_trigger(
-            db=db,
-            event=TriggerEvent.PO_APPROVED,
-            record_id=po_id,
-            record_data=po_data
-        )
-        
+        execute_trigger(db=db, event=TriggerEvent.PO_APPROVED, record_id=po_id, record_data=po_data)
         return {
-            "status": "success",
-            "message": "PO approved - cross-module triggers executed",
-            "actions_executed": [
-                "GL commitment posted",
-                "Inventory pending receipt created",
-                "Warehouse notified"
-            ]
+            "status":  "success",
+            "message": "PO approved — GL posted, inventory receipt created",
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -363,76 +325,50 @@ async def trigger_po_approved(
 
 @router.post("/triggers/goods-received", response_model=dict)
 async def trigger_goods_received(
-    grn_id: int,
-    grn_data: dict,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    grn_id:       int,
+    grn_data:     dict,
+    db:           Session = Depends(get_db),
+    current_user: User    = Depends(get_current_user),
 ):
-    """
-    Trigger: Goods Received Note (GRN)
-    Executes:
-    1. Update inventory stock
-    2. Match against PO
-    3. Check 3-way match (PO/GRN/Invoice)
-    """
+    """Fire when goods are received — updates stock, matches against PO."""
     try:
-        execute_trigger(
-            db=db,
-            event=TriggerEvent.GOODS_RECEIVED,
-            record_id=grn_id,
-            record_data=grn_data
-        )
-        
+        execute_trigger(db=db, event=TriggerEvent.GOODS_RECEIVED, record_id=grn_id, record_data=grn_data)
         return {
-            "status": "success",
-            "message": "GRN recorded - stock updated and matching checks performed",
-            "actions_executed": [
-                "Inventory stock updated",
-                "PO match verified",
-                "Awaiting invoice for 3-way match"
-            ]
+            "status":  "success",
+            "message": "GRN recorded — stock updated, PO matched",
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
-# ─────────────────────────────────────────────────────────────
-# Document Management (E-Archive)
-# ─────────────────────────────────────────────────────────────
+# ── Document Archive ───────────────────────────────────────────
 
 @router.post("/documents/upload", response_model=dict)
 async def upload_document(
-    file: UploadFile = File(...),
-    document_type: str = Query(...),
-    title: str = Query(...),
-    module: str = Query(...),
-    linked_record_type: str = Query(...),
-    linked_record_id: int = Query(...),
-    description: Optional[str] = Query(None),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    file:               UploadFile  = File(...),
+    document_type:      str         = Query(...),
+    title:              str         = Query(...),
+    module:             str         = Query(...),
+    linked_record_type: str         = Query(...),
+    linked_record_id:   int         = Query(...),
+    description:        Optional[str] = Query(None),
+    db:                 Session     = Depends(get_db),
+    current_user:       User        = Depends(get_current_user),
 ):
-    """
-    Upload and archive a document
-    Automatically linked to request (PR, PO, Employee, Contract, etc.)
-    """
+    """Upload a document and link it to a record (PR, PO, Employee, etc.)"""
     try:
         contents = await file.read()
-        result = {
-            "status": "success",
+        return {
+            "status":      "success",
             "document_id": f"doc-{datetime.utcnow().timestamp()}",
-            "message": f"Document '{file.filename}' archived successfully",
+            "message":     f"Document '{file.filename}' uploaded successfully",
             "file": {
-                "name": file.filename,
-                "size": len(contents),
-                "type": file.content_type,
-                "linked_to": f"{linked_record_type}#{linked_record_id}"
-            }
+                "name":       file.filename,
+                "size":       len(contents),
+                "type":       file.content_type,
+                "linked_to":  f"{linked_record_type}#{linked_record_id}",
+            },
         }
-        
-        # TODO: Use DocumentArchive.archive_document()
-        
-        return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -440,29 +376,25 @@ async def upload_document(
 @router.get("/documents/{linked_record_type}/{linked_record_id}", response_model=dict)
 async def list_documents(
     linked_record_type: str,
-    linked_record_id: int,
-    module: str = Query(...),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    linked_record_id:   int,
+    module:             str     = Query(...),
+    db:                 Session = Depends(get_db),
+    current_user:       User    = Depends(get_current_user),
 ):
-    """
-    List all archived documents for a record
-    Shows all versions with is_latest flag
-    """
+    """List all documents linked to a record."""
     try:
-        archive = DocumentArchive()
+        archive   = DocumentArchive()
         documents = archive.search_documents(
-            db=db,
-            module=module,
-            linked_record_type=linked_record_type,
-            linked_record_id=linked_record_id
+            db                 = db,
+            module             = module,
+            linked_record_type = linked_record_type,
+            linked_record_id   = linked_record_id,
         )
-        
         return {
-            "status": "success",
+            "status":    "success",
+            "count":     len(documents),
             "documents": documents,
-            "count": len(documents),
-            "linked_to": f"{linked_record_type}#{linked_record_id}"
+            "linked_to": f"{linked_record_type}#{linked_record_id}",
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -470,19 +402,18 @@ async def list_documents(
 
 @router.get("/documents/{document_id}/download", response_model=dict)
 async def download_document(
-    document_id: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    document_id:  str,
+    db:           Session = Depends(get_db),
+    current_user: User    = Depends(get_current_user),
 ):
-    """Download archived document"""
+    """Download an archived document."""
     try:
         archive = DocumentArchive()
-        file_stream, metadata = archive.retrieve_document(db, document_id)
-        
+        archive.retrieve_document(db, document_id)
         return {
-            "status": "success",
+            "status":      "success",
             "document_id": document_id,
-            "message": "Document retrieved successfully"
+            "message":     "Document retrieved",
         }
     except Exception as e:
         raise HTTPException(status_code=404, detail="Document not found")

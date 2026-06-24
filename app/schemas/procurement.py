@@ -43,22 +43,26 @@ class PRCreate(BaseModel):
     priority:       Optional[str] = "medium"
 
 class PRApprove(BaseModel):
-    status: str  # hr_approved | finance_approved | final_approved | rejected
+    status:    str            # hr_approved | finance_approved | final_approved | rejected
+    vendor_id: Optional[int] = None   # Admin final approve பண்ணும்போது vendor select பண்ணணும்
+    unit_price: Optional[float] = None  # PO auto create-க்கு வேணும்
+    delivery_date: Optional[date] = None
+    notes:     Optional[str] = None
 
 class PROut(BaseModel):
-    id:               int
-    title:            str
-    description:      Optional[str]
-    quantity:         int
-    estimated_cost:   float
-    department:       str
-    priority:         str
-    status:           str
-    requested_by:     int
-    hr_approved_by:   Optional[int]
-    fin_approved_by:  Optional[int]
-    final_approved_by:Optional[int]
-    created_at:       datetime
+    id:                int
+    title:             str
+    description:       Optional[str]
+    quantity:          int
+    estimated_cost:    float
+    department:        str
+    priority:          str
+    status:            str
+    requested_by:      int
+    hr_approved_by:    Optional[int]
+    fin_approved_by:   Optional[int]
+    final_approved_by: Optional[int]
+    created_at:        datetime
 
     class Config:
         from_attributes = True
@@ -70,8 +74,8 @@ class POCreate(BaseModel):
     vendor_id:           int
     quantity:            int
     unit_price:          float
-    delivery_date:       Optional[date] = None
-    notes:               Optional[str] = None
+    delivery_date:       Optional[date]  = None
+    notes:               Optional[str]   = None
 
 class POUpdate(BaseModel):
     status: str  # pending | delivered | cancelled

@@ -1,8 +1,21 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
-from datetime import datetime
+from datetime import datetime, timezone, timedelta, date as date_type
 from app.models.hr import Leave, Attendance, Payroll, ActivityLog
 from app.schemas.hr import LeaveCreate, LeaveUpdate, AttendanceCreate, PayrollCreate
+from app.services.notification_service import create_notification
+
+# ── Oman Timezone (GST = UTC+4) ────────────────────────
+OMAN_TZ = timezone(timedelta(hours=4))
+
+def now_oman():
+    """Current datetime in Oman time (no tzinfo — DB stores naive datetime)"""
+    return datetime.now(OMAN_TZ).replace(tzinfo=None)
+
+def today_oman():
+    """Current date in Oman time"""
+    return datetime.now(OMAN_TZ).date()
+
 
 # ── Leave ──────────────────────────────────────────────
 def apply_leave(db: Session, employee_id: int, data: LeaveCreate) -> Leave:
@@ -30,9 +43,8 @@ def update_leave_status(db: Session, leave_id: int, data: LeaveUpdate, done_by_u
     if not leave:
         raise HTTPException(status_code=404, detail="Leave not found")
     leave.status      = data.status
-    leave.approved_by = done_by_user.id  # auto set from logged in user
+    leave.approved_by = done_by_user.id
 
-    # Activity log
     log = ActivityLog(
         action       = f"{data.status}_leave",
         module       = "hr",
@@ -45,6 +57,23 @@ def update_leave_status(db: Session, leave_id: int, data: LeaveUpdate, done_by_u
     db.add(log)
     db.commit()
     db.refresh(leave)
+
+    from app.models.employee import Employee
+    emp = db.query(Employee).filter(Employee.id == leave.employee_id).first()
+    if emp:
+        status_label = "Approved" if data.status == "approved" else "Rejected"
+        create_notification(
+            db         = db,
+            user_id    = emp.user_id,
+            title      = f"Leave Request {status_label}",
+            message    = (
+                f"Your {leave.leave_type} leave from {leave.start_date} to {leave.end_date} "
+                f"({leave.days} day(s)) has been {data.status} by {done_by_user.username}."
+            ),
+            module     = "hr",
+            notif_type = "success" if data.status == "approved" else "alert",
+        )
+
     return leave
 
 
@@ -96,11 +125,10 @@ def create_payroll(db: Session, data: PayrollCreate, processed_by_user) -> Payro
         net_salary   = net_salary,
         status       = "processed",
         processed_by = processed_by_user.id,
-        processed_at = datetime.utcnow()
+        processed_at = now_oman()   # ✅ Oman time
     )
     db.add(payroll)
 
-    # Activity log
     log = ActivityLog(
         action       = "processed_payroll",
         module       = "payroll",
@@ -114,14 +142,30 @@ def create_payroll(db: Session, data: PayrollCreate, processed_by_user) -> Payro
     db.commit()
     db.refresh(payroll)
 
-    # Auto-post to GL: payroll = salary expense (cash out)
     from app.services.finance_service import post_gl_entry
     post_gl_entry(
-        db, entry_date=datetime.utcnow().date(),
+        db, entry_date=today_oman(),   # ✅ Oman date
         description=f"Payroll - Employee #{data.employee_id} - {data.month}",
         account_type="expense", debit=net_salary,
         reference=f"PAYROLL-{payroll.id}", created_by=processed_by_user.id
     )
+
+    from app.models.employee import Employee
+    emp = db.query(Employee).filter(Employee.id == data.employee_id).first()
+    if emp:
+        create_notification(
+            db         = db,
+            user_id    = emp.user_id,
+            title      = "Payroll Processed",
+            message    = (
+                f"Your payroll for {data.month} has been processed. "
+                f"Net salary: {net_salary:.2f} (Basic: {data.basic_salary:.2f} + "
+                f"Allowances: {data.allowances:.2f} - Deductions: {data.deductions:.2f})."
+            ),
+            module     = "hr",
+            notif_type = "success",
+        )
+
     return payroll
 
 def get_payroll_by_employee(db: Session, employee_id: int):
@@ -186,13 +230,11 @@ def get_expiring_contracts(db: Session, days: int = 30):
     ).all()
 
 def get_expired_contracts(db: Session):
-    today = date.today()
     expired = db.query(Contract).filter(
         Contract.end_date != None,
         Contract.end_date < date.today(),
         Contract.status == "active"
     ).all()
-    # Auto mark as expired
     for c in expired:
         c.status = "expired"
     db.commit()
@@ -306,7 +348,6 @@ def delete_document(db: Session, doc_id: int):
     doc = db.query(EmployeeDocument).filter(EmployeeDocument.id == doc_id).first()
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
-    # Delete file from disk
     if os.path.exists(doc.file_path):
         os.remove(doc.file_path)
     db.delete(doc)
@@ -315,10 +356,8 @@ def delete_document(db: Session, doc_id: int):
 
 
 # ── Employee Self Check In/Out ──────────────────────────
-from datetime import date as date_type
-
 def employee_check_in(db: Session, employee_id: int) -> Attendance:
-    today = date_type.today()
+    today = today_oman()           # ✅ Oman date
     existing = db.query(Attendance).filter(
         Attendance.employee_id == employee_id,
         Attendance.date == today
@@ -327,7 +366,7 @@ def employee_check_in(db: Session, employee_id: int) -> Attendance:
     if existing:
         if existing.check_in:
             raise HTTPException(status_code=400, detail="Already checked in today")
-        existing.check_in = datetime.utcnow()
+        existing.check_in = now_oman()   # ✅ Oman time
         existing.status   = "present"
         db.commit()
         db.refresh(existing)
@@ -336,7 +375,7 @@ def employee_check_in(db: Session, employee_id: int) -> Attendance:
     attendance = Attendance(
         employee_id = employee_id,
         date        = today,
-        check_in    = datetime.utcnow(),
+        check_in    = now_oman(),        # ✅ Oman time
         status      = "present"
     )
     db.add(attendance)
@@ -344,8 +383,9 @@ def employee_check_in(db: Session, employee_id: int) -> Attendance:
     db.refresh(attendance)
     return attendance
 
+
 def employee_check_out(db: Session, employee_id: int) -> Attendance:
-    today = date_type.today()
+    today = today_oman()           # ✅ Oman date
     existing = db.query(Attendance).filter(
         Attendance.employee_id == employee_id,
         Attendance.date == today
@@ -356,13 +396,14 @@ def employee_check_out(db: Session, employee_id: int) -> Attendance:
     if existing.check_out:
         raise HTTPException(status_code=400, detail="Already checked out today")
 
-    existing.check_out = datetime.utcnow()
+    existing.check_out = now_oman()     # ✅ Oman time
     db.commit()
     db.refresh(existing)
     return existing
 
+
 def get_today_attendance(db: Session, employee_id: int):
-    today = date_type.today()
+    today = today_oman()           # ✅ Oman date
     return db.query(Attendance).filter(
         Attendance.employee_id == employee_id,
         Attendance.date == today
@@ -370,19 +411,16 @@ def get_today_attendance(db: Session, employee_id: int):
 
 
 # ── Leave Balance ──────────────────────────────────────
-ANNUAL_LEAVE_QUOTA = 21  # days per year (configurable)
+ANNUAL_LEAVE_QUOTA = 21
 
 def get_leave_balance(db: Session, employee_id: int) -> dict:
-    from datetime import date
-    current_year = date.today().year
+    current_year = today_oman().year   # ✅ Oman year
 
-    # Get approved leaves this year
     approved_leaves = db.query(Leave).filter(
         Leave.employee_id == employee_id,
         Leave.status      == "approved",
     ).all()
 
-    # Filter current year
     used_days = sum(
         l.days for l in approved_leaves
         if l.start_date and l.start_date.year == current_year

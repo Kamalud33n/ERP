@@ -17,11 +17,11 @@ from app.api.v1 import (
     procurement as procurement_router,
     inventory as inventory_router,
     asset as asset_router,
-    # extra admin endpoints
     admin_extra as admin_extra_router,
     workflow as workflow_router,
     workflow_config as workflow_config_router,
-    workflows as workflows_router  # Phase 2: Advanced workflows
+    workflows as workflows_router,          # Phase 2: Advanced workflows
+    notifications as notifications_router,  # NEW
 )
 
 Base.metadata.create_all(bind=engine)
@@ -36,23 +36,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth.router,               prefix="/api/v1/auth",        tags=["Auth"])
-app.include_router(employee_router.router,    prefix="/api/v1/employee",    tags=["Employee"])
-app.include_router(hr_router.router,          prefix="/api/v1/hr",          tags=["HR"])
-app.include_router(finance_router.router,     prefix="/api/v1/finance",     tags=["Finance"])
-app.include_router(dashboard.router,          prefix="/api/v1/dashboard",   tags=["Dashboard"])
-app.include_router(admin_router.router,       prefix="/api/v1/admin",       tags=["Admin"])
-# include extra admin endpoints (search, reset, invite, audit, import/export)
-app.include_router(admin_extra_router.router, prefix="/api/v1/admin",       tags=["Admin"])
-# workflow engine endpoints
-app.include_router(workflow_router.router,    prefix="/api/v1/workflow",    tags=["Workflow"])
-# workflow configuration (templates/steps)
-app.include_router(workflow_config_router.router, prefix="/api/v1/workflow-config", tags=["Workflow Config"])
-# Phase 2: Advanced approval workflows with triggers & documents
-app.include_router(workflows_router.router,   prefix="/api/v1/workflows",   tags=["Advanced Workflows"])
-app.include_router(procurement_router.router, prefix="/api/v1/procurement", tags=["Procurement"])
-app.include_router(inventory_router.router,   prefix="/api/v1/inventory",   tags=["Inventory"])
-app.include_router(asset_router.router,       prefix="/api/v1/asset",       tags=["Asset"])
+app.include_router(auth.router,                   prefix="/api/v1/auth",           tags=["Auth"])
+app.include_router(employee_router.router,        prefix="/api/v1/employee",       tags=["Employee"])
+app.include_router(hr_router.router,              prefix="/api/v1/hr",             tags=["HR"])
+app.include_router(finance_router.router,         prefix="/api/v1/finance",        tags=["Finance"])
+app.include_router(dashboard.router,              prefix="/api/v1/dashboard",      tags=["Dashboard"])
+app.include_router(admin_router.router,           prefix="/api/v1/admin",          tags=["Admin"])
+app.include_router(admin_extra_router.router,     prefix="/api/v1/admin",          tags=["Admin"])
+app.include_router(workflow_router.router,        prefix="/api/v1/workflow",       tags=["Workflow"])
+app.include_router(workflow_config_router.router, prefix="/api/v1/workflow-config",tags=["Workflow Config"])
+app.include_router(workflows_router.router,       prefix="/api/v1/workflows",      tags=["Advanced Workflows"])
+app.include_router(procurement_router.router,     prefix="/api/v1/procurement",    tags=["Procurement"])
+app.include_router(inventory_router.router,       prefix="/api/v1/inventory",      tags=["Inventory"])
+app.include_router(asset_router.router,           prefix="/api/v1/asset",          tags=["Asset"])
+app.include_router(notifications_router.router,   prefix="/api/v1/notifications",  tags=["Notifications"])  # NEW
 
 @app.get("/health")
 @app.get("/api/v1/health")
@@ -73,9 +70,7 @@ if os.path.exists(static_dir):
 
 @app.get("/")
 def serve_login():
-    index_path = os.path.join(BASE_DIR, "static", "index.html")
-    print(f"Serving: {index_path} — exists: {os.path.exists(index_path)}")
-    return FileResponse(index_path)
+    return FileResponse(os.path.join(BASE_DIR, "static", "index.html"))
 
 @app.get("/{page}.html")
 def serve_page(page: str):
